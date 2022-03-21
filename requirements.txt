@@ -1,0 +1,4 @@
+aiohttp
+hikari
+tekore
+yarl
