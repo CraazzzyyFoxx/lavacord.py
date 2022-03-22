@@ -12,8 +12,8 @@ setup(
     description='Its a lavalink nodes manger to make a music bots for discord with python.',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/HazemMeqdad/lavaplayer',
-    author='HazemMeqdad',
+    url='https://github.com/CraazzzyyFoxx/lavacord.py',
+    author='CraazzzyyFoxx',
     author_email='hazemmeqdad@gmail.com',
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -27,11 +27,10 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
     ],
     keywords='lavalink, discord, discord-lavalink, lavacord.py',
-    packages=["lavaplayer"],
+    packages=["lavacord"],
     install_requires=["aiohttp", "hikari", "yarl", "tekore"],
     project_urls={
-        'Bug Reports': 'https://github.com/HazemMeqdad/lavaplayer/issues',
-        'Source': 'https://github.com/HazemMeqdad/lavaplayer/',
-        'Documentation': 'https://lavaplayer.readthedocs.io/en/latest'
+        'Bug Reports': 'https://github.com/CraazzzyyFoxx/lavacord.py/issues',
+        'Source': 'https://github.com/CraazzzyyFoxx/lavacord.py/',
     },
 )
