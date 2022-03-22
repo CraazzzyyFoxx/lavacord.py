@@ -29,6 +29,7 @@ import asyncio.exceptions
 import json
 import logging
 import os
+from pprint import pprint
 from typing import (
     Any,
     Callable,
@@ -182,7 +183,6 @@ class Node:
 
     async def _loadtracks(self, query):
         data, resp = await self._get_data("loadtracks", {"identifier": query})
-
         if resp.status != 200:
             raise LavalinkException("Invalid response from Lavalink server.")
 
@@ -192,10 +192,7 @@ class Node:
             raise LoadTrackError(data)
 
         if load_type is LoadType.no_matches:
-            return [], load_type
-
-        if load_type is not LoadType.search_result:
-            raise LavalinkException("Track failed to load.")
+            raise LavalinkException("Track not found.")
 
         return data, load_type
 
@@ -209,7 +206,9 @@ class Node:
         if payload is None:
             payload = {}
 
-        data, load_type = await self._loadtracks(f"{cls._search_type}:{query}")
+        query = f"{cls._search_type}:{query}" if cls._search_type else query
+
+        data, load_type = await self._loadtracks(query)
         if load_type is LoadType.track_loaded or return_first:
             track_data_ = data["tracks"][0]
             return cls(track=track_data_["track"], requester=requester, **(track_data_["info"] | payload))
@@ -221,6 +220,7 @@ class Node:
 
     async def get_playlist(self,
                            cls: Type[PLT],
+                           cls_track: Type[PT],
                            query: str,
                            requester: hikari.Snowflake,
                            *,
@@ -230,11 +230,13 @@ class Node:
             payload = {}
 
         data, load_type = await self._loadtracks(query)
-
         if load_type is not LoadType.playlist_loaded:
             raise LavalinkException("Track failed to load.")
 
-        return cls(tracks=data.get("tracks"), requested=requester, **(data.get("playlistInfo") | payload))
+        return cls(tracks=[cls_track(track=track['track'], **track['info'], requester=requester)
+                           for track in data.get("tracks")],
+                   requester=requester,
+                   **(data.get("playlistInfo") | payload))
 
     async def build_track(self, cls: Type[PT], identifier: str) -> PT:
         data, resp = await self._get_data("decodetrack", {"track": identifier})

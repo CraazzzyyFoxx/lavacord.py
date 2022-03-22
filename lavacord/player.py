@@ -99,14 +99,14 @@ class BasePlayer:
             return 0
 
         if self.is_paused():
-            return min(self.last_position, self.source.duration)
+            return min(self.last_position, self.source.length)
 
         delta = (
                 datetime.datetime.now(datetime.timezone.utc) - self.last_update
         ).total_seconds()
         position = round(self.last_position + delta, 1)
 
-        return min(position, self.source.duration)
+        return min(position, self.source.length)
 
     def is_connected(self) -> bool:
         """Indicates whether the player is connected to voice."""
@@ -125,8 +125,10 @@ class BasePlayer:
         if not state:
             return
 
-        self.last_update = datetime.datetime.fromtimestamp(state.get("time", 0), datetime.timezone.utc)
-        self.last_position = state.get("position", 0)
+        self.last_update = datetime.datetime.fromtimestamp(
+            state.get("time", 0) / 1000, datetime.timezone.utc
+        )
+        self.last_position = round(state.get("position", 0), 1)
 
     async def connect(self, *, self_deaf: bool = True) -> None:
         await self.node.bot.update_voice_state(self.voice_state.guild_id,

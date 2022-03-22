@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-
 import asyncio
 import typing as t
 
@@ -38,6 +37,7 @@ class LavalinkClient:
     """
     Represents a Lavalink client used to manage nodes and connections.
     """
+
     def __init__(
             self,
             bot: hikari.GatewayBot,
@@ -81,15 +81,15 @@ class LavalinkClient:
             return
 
         guild_id = event.guild_id
-
         player = await self.get_player(guild_id)
-        if not event.state.channel_id:
-            if player:
+
+        if player:
+            if not event.state.channel_id:
                 await player.destroy()
-                return
-        player._voice_state = ConnectionInfo(guild_id=guild_id,
-                                             session_id=event.state.session_id,
-                                             channel_id=event.state.channel_id)
+            else:
+                player._voice_state = ConnectionInfo(guild_id=guild_id,
+                                                     session_id=event.state.session_id,
+                                                     channel_id=event.state.channel_id)
 
     async def raw_voice_server_update(self, event: hikari.VoiceServerUpdateEvent) -> None:
         """

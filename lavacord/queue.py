@@ -312,11 +312,11 @@ class Queue(BaseQueue):
         return [f"{track}" for track in self._queue]
 
     @property
-    def upcoming(self) -> BaseQueue[Union[abc.Track, abc.Track]]:
+    def upcoming(self) -> BaseQueue[abc.Track]:
         return self._queue
 
     @property
-    def history(self) -> BaseQueue[Union[abc.Track, abc.Track]]:
+    def history(self) -> BaseQueue[abc.Track]:
         return self._history
 
     @property
@@ -328,6 +328,10 @@ class Queue(BaseQueue):
     @property
     def current_index(self):
         return len(self.history)
+
+    @property
+    def repeat_mode(self):
+        return self._repeat_mode
 
     def clear(self):
         self._history.clear()
@@ -381,19 +385,18 @@ class Queue(BaseQueue):
 
         if not current_track:
             return '0:00:00'
-        if current_track.is_stream:
+        if current_track.isStream:
             return 'Infinity'
 
         estimated_time = current_track.length
+        estimated_time -= position
 
         if self.upcoming is None:
-            return timedelta(seconds=estimated_time)
+            return timedelta(seconds=int(estimated_time / 1000))
 
-        if self.upcoming is not None:
-            for track in self.upcoming:
-                if track.is_stream:  # type: ignore
-                    return 'Infinity'
-                estimated_time += track.length
+        for track in self.upcoming:
+            if track.isStream:
+                return 'Infinity'
+            estimated_time += track.length
 
-        estimated_time -= position
-        return timedelta(seconds=estimated_time)
+        return timedelta(seconds=int(estimated_time / 1000))

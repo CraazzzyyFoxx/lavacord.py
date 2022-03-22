@@ -50,6 +50,7 @@ __all__ = (
     "Searchable",
     "Playlist",
     "Track",
+    "SpotifyInfo"
 )
 
 ST = TypeVar("ST", bound="Searchable")
@@ -72,8 +73,8 @@ class Track:
         The tracks URI. Could be None.
     author: Optional[str]
         The author of the track. Could be None
-    requester: hikari.Snowflake
-        The requester of the track.
+    requester: Optional[hikari.Snowflake]
+        The requester of the track. . Could be None
     """
 
     track: str = attr.field(default=None)
@@ -86,11 +87,16 @@ class Track:
     length: float = attr.field()
     sourceName: str = attr.field()
     position: str = attr.field()
-    requester: hikari.Snowflake = attr.field()
+    requester: Optional[hikari.Snowflake] = attr.field(default=None)
 
     def __repr__(self):
         return f"[{self.title} - {self.author}]({self.uri}) \n > " \
-               f"({timedelta(milliseconds=self.length)}) Requester: <@{self.requester}>"
+               f"({timedelta(milliseconds=self.length) if not self.isStream else 'Infinity'}) " \
+               f"Requester: <@{self.requester}>"
+
+    @property
+    def thumbnail(self):
+        return None
 
 
 class Searchable(metaclass=abc.ABCMeta):
@@ -167,8 +173,9 @@ class Playlist(metaclass=abc.ABCMeta):
     _color: ClassVar[hikari.Color]
 
     name: str = attr.field()
-    selected_tracks: int = attr.field()
+    selectedTrack: int = attr.field()
     tracks: List[Track] = attr.field()
+    requester: Optional[hikari.Snowflake] = attr.field()
 
     @overload
     @classmethod
@@ -187,18 +194,26 @@ class Playlist(metaclass=abc.ABCMeta):
             requester: hikari.Snowflake,
             node: Node = None,
     ) -> Playlist:
-        return await node.get_playlist(cls, query, requester)
+        raise NotImplementedError
 
     @property
     def thumbnail(self):
-        return NotImplemented
+        return None
 
     @property
     def embed(self) -> hikari.Embed:
         emb = hikari.Embed(color=self._color, timestamp=datetime.now(timezone.utc))
         emb.description = self.name
-        # emb.thumbnail = self.thumbnail
+        if self.thumbnail:
+            emb.set_thumbnail(self.thumbnail)
         emb.add_field(name='Duration',
                       value=str(timedelta(milliseconds=sum([track.length for track in self.tracks]))))
         emb.set_author(icon=self._icon, name='Playlist Added to Queue')
         return emb
+
+
+@attr.define(kw_only=True)
+class SpotifyInfo:
+    id: str = attr.field()
+    thumbnail: str = attr.field()
+

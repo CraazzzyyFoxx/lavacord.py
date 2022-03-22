@@ -34,11 +34,11 @@ import attr
 import hikari
 import tekore
 
-from tekore._model import FullTrack, FullAlbum, FullPlaylist, SimpleTrack, PlaylistTrack
+from tekore._model import FullAlbum, FullPlaylist, SimpleTrack, PlaylistTrack
 
 from airy.utils import utcnow
 
-from .abc import Playlist, Track
+from .abc import Playlist, Track, SpotifyInfo
 from .enums import Icons
 
 if t.TYPE_CHECKING:
@@ -67,10 +67,6 @@ class SearchableTrack(Track):
     _color: t.ClassVar[hikari.Color]
     _spotify = False
 
-    @property
-    def thumbnail(self):
-        raise NotImplemented
-
     @classmethod
     async def search(
             cls: t.Type[ST],
@@ -85,14 +81,13 @@ class SearchableTrack(Track):
         if tracks is not None:
             return tracks
 
-
-
     @property
     def embed(self) -> hikari.Embed:
         emb = hikari.Embed(color=self._color, timestamp=utcnow())
         emb.set_thumbnail(self.thumbnail)
         emb.description = self.title
-        emb.add_field(name='Duration', value=str(timedelta(milliseconds=self.length)))
+        emb.add_field(name='Duration', value=str(timedelta(milliseconds=self.length)
+                                                  if not self.isStream else 'Infinity'))
         emb.set_author(icon=self._icon, name='Track Added to Queue')
         return emb
 
@@ -127,6 +122,7 @@ class YouTubeMusicTrack(SearchableTrack):
 
 class TwitchTrack(SearchableTrack):
     """A track created using a search to Twitch."""
+    _search_type = ""
     _color = hikari.Color.from_hex_code("#9448ff")
     _icon = Icons.twitch
     _spotify = False
@@ -148,7 +144,7 @@ class SpotifyTrack(YouTubeMusicTrack):
     _icon = Icons.spotify
     _spotify = True
 
-    spotify_info: FullTrack = attr.field()
+    spotify_info: SpotifyInfo = attr.field()
 
     @property
     def uri(self):
@@ -156,7 +152,7 @@ class SpotifyTrack(YouTubeMusicTrack):
 
     @property
     def thumbnail(self) -> str:
-        return self.spotify_info.album.images[0].url
+        return self.spotify_info.thumbnail
 
     @classmethod
     async def search(
@@ -180,9 +176,14 @@ class YouTubePlaylist(Playlist):
     _color = hikari.Color.from_hex_code("#ff0101")
     _spotify = False
 
-    @property
-    def thumbnail(self):
-        return NotImplemented
+    @classmethod
+    async def search(
+            cls: t.Type[ST],
+            query: str,
+            requester: hikari.Snowflake,
+            node: Node = ...,
+    ) -> YouTubePlaylist:
+        return await node.get_playlist(cls, YouTubeTrack, query, requester)
 
 
 @attr.define(kw_only=True, repr=False)
@@ -190,6 +191,15 @@ class YouTubeMusicPlaylist(Playlist):
     _icon = Icons.youtubemusic
     _color = hikari.Color.from_hex_code("#ff0101")
     _spotify = False
+
+    @classmethod
+    async def search(
+            cls: t.Type[ST],
+            query: str,
+            requester: hikari.Snowflake,
+            node: Node = ...,
+    ) -> YouTubeMusicPlaylist:
+        return await node.get_playlist(cls, YouTubeMusicTrack, query, requester)
 
 
 class SpotifyAlbum(Playlist):
@@ -214,11 +224,14 @@ class SpotifyAlbum(Playlist):
         async def func(track: SimpleTrack):
             artists = [artist.name for artist in track.artists]
             query = f'{track.name} {", ".join(artists)}'
+            print(track.preview_url)
+            print(track.href)
             track_ = await node.get_tracks(SpotifyTrack,
                                            query=query,
                                            requester=requester,
                                            return_first=True,
-                                           payload=dict(spotify_info=track))
+                                           payload=dict(spotify_info=SpotifyInfo(id=query,
+                                                                                 thumbnail=track.preview_url)))
             if track_ is None:
                 return
 
@@ -232,9 +245,10 @@ class SpotifyAlbum(Playlist):
 
         return cls(tracks=tracks,
                    name=playlist.name,
-                   selected_tracks=len(tracks),
+                   selectedTrack=len(tracks),
                    uri=playlist.uri,
-                   thumbnail=playlist.images[0].url)
+                   thumbnail=playlist.images[0].url,
+                   requester=requester)
 
 
 @attr.define(kw_only=True, repr=False)
@@ -264,7 +278,8 @@ class SpotifyPlaylist(Playlist):
                                            query=query,
                                            requester=requester,
                                            return_first=True,
-                                           payload=dict(spotify_info=track))
+                                           payload=dict(spotify_info=SpotifyInfo(id=track.track.id,
+                                                                                 thumbnail=track.track.album.images[0].url)))
             if track_ is None:
                 return
 
@@ -278,6 +293,7 @@ class SpotifyPlaylist(Playlist):
 
         return cls(tracks=tracks,
                    name=playlist.name,
-                   selected_tracks=len(tracks),
+                   selectedTrack=len(tracks),
                    uri=playlist.uri,
-                   thumbnail=playlist.images[0].url)
+                   thumbnail=playlist.images[0].url,
+                   requester=requester)
