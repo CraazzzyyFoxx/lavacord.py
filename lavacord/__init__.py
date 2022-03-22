@@ -5,7 +5,7 @@ Lavalink connecter
 :license: MIT, see LICENSE for more details.
 """
 
-__title__ = "lavaplayer"
+__title__ = "lavacord"
 __author__ = "CraazzzyyFoxx"
 __license__ = "MIT"
 __version__ = "1.0.0a"

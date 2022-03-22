@@ -1,3 +1,28 @@
+"""
+MIT License
+
+Copyright (c) 2022 CrazzzyyFoxx
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+
 from __future__ import annotations
 
 import datetime
@@ -29,7 +54,7 @@ class BasePlayer:
                  guild_id: hikari.Snowflake,
                  channel_id: hikari.Snowflake,
                  *,
-                 node):
+                 node: Node):
         self._connected: bool = False
         self._voice_state: ConnectionInfo = ConnectionInfo(guild_id=guild_id,
                                                            channel_id=channel_id,
@@ -74,24 +99,34 @@ class BasePlayer:
             return 0
 
         if self.is_paused():
-            return min(self.last_position, self.source.duration)  # type: ignore
+            return min(self.last_position, self.source.duration)
 
         delta = (
                 datetime.datetime.now(datetime.timezone.utc) - self.last_update
         ).total_seconds()
         position = round(self.last_position + delta, 1)
 
-        return min(position, self.source.duration)  # type: ignore
+        return min(position, self.source.duration)
+
+    def is_connected(self) -> bool:
+        """Indicates whether the player is connected to voice."""
+        return self._connected
+
+    def is_playing(self) -> bool:
+        """Indicates wether a track is currently being played."""
+        return self.is_connected() and self._source is not None
+
+    def is_paused(self) -> bool:
+        """Indicates wether the currently playing track is paused."""
+        return self._paused
 
     async def update_state(self, state: t.Dict[str, t.Any]) -> None:
         state = state.get("state")
         if not state:
             return
 
-        self.last_update = datetime.datetime.fromtimestamp(
-            state.get("time", 0) / 1000, datetime.timezone.utc
-        )
-        self.last_position = round(state.get("position", 0) / 1000, 1)
+        self.last_update = datetime.datetime.fromtimestamp(state.get("time", 0), datetime.timezone.utc)
+        self.last_position = state.get("position", 0)
 
     async def connect(self, *, self_deaf: bool = True) -> None:
         await self.node.bot.update_voice_state(self.voice_state.guild_id,
@@ -106,7 +141,6 @@ class BasePlayer:
 
         await self.node.bot.update_voice_state(guild=self.voice_state.guild_id, channel=None)
         self._connected = False
-
 
     async def move_to(self, channel: hikari.GuildVoiceChannel) -> None:
         """|coro|
@@ -123,7 +157,7 @@ class BasePlayer:
             self, source: abc.Track, replace: bool = True, start: int = 0, end: int = 0
     ):
         """|coro|
-        Play a WaveLink Track.
+        Play a Lavacord Track.
         Parameters
         ----------
         source: :class:`abc.Playable`
@@ -137,7 +171,7 @@ class BasePlayer:
             By default this always allows the current song to finish playing.
         Returns
         -------
-        :class:`wavelink.abc.Playable`
+        :class:`lavacord.abc.Playable`
             The track that is now playing.
         """
         if replace or not self.is_playing():
@@ -161,18 +195,6 @@ class BasePlayer:
 
         logger.debug(f"Started playing track:: {str(source)} ({self.voice_state.channel_id})")
         return source
-
-    def is_connected(self) -> bool:
-        """Indicates whether the player is connected to voice."""
-        return self._connected
-
-    def is_playing(self) -> bool:
-        """Indicates wether a track is currently being played."""
-        return self.is_connected() and self._source is not None
-
-    def is_paused(self) -> bool:
-        """Indicates wether the currently playing track is paused."""
-        return self._paused
 
     async def stop(self) -> None:
         """|coro|

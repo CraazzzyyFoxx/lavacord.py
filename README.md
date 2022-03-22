@@ -63,11 +63,11 @@ player.queue.get_previous_track()
 await player.stop()
 
 # Repeat Mode
-player.queue.set_repeat_mode(lavaplayer.RepeatMode.ONE)
+player.queue.set_repeat_mode(lavacord.RepeatMode.ONE)
 ```
 
 
-Examples for some spotify.
+Examples for spotify.
 ```python
 import hikari
 import lavacord
@@ -94,8 +94,9 @@ bot.run()
 # Features
 
 - [x] Spotify support
-- [x] connection handler
+- [x] Connection handler
 - [x] Support youtube playlist
+- [x] Support multiple nodes
 - [ ] Add examples
 
 # Installation
