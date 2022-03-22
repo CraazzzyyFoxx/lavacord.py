@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-
 from __future__ import annotations
 
 import asyncio
@@ -87,7 +86,7 @@ class SearchableTrack(Track):
         emb.set_thumbnail(self.thumbnail)
         emb.description = self.title
         emb.add_field(name='Duration', value=str(timedelta(milliseconds=self.length)
-                                                  if not self.isStream else 'Infinity'))
+                                                 if not self.isStream else 'Infinity'))
         emb.set_author(icon=self._icon, name='Track Added to Queue')
         return emb
 
@@ -166,7 +165,11 @@ class SpotifyTrack(YouTubeMusicTrack):
         track_: tekore.model.FullTrack = await node.spotify.track(query)
         artists = [artist.name for artist in track_.artists]
         query = f'{track_.name} {", ".join(artists)}'
-        return await node.get_tracks(cls, query, requester, payload=dict(spotify_info=track_),
+        return await node.get_tracks(cls,
+                                     query,
+                                     requester,
+                                     payload=dict(spotify_info=SpotifyInfo(id=track_.id,
+                                                                           thumbnail=track_.album.images[0].url)),
                                      return_first=return_first)
 
 
@@ -279,7 +282,8 @@ class SpotifyPlaylist(Playlist):
                                            requester=requester,
                                            return_first=True,
                                            payload=dict(spotify_info=SpotifyInfo(id=track.track.id,
-                                                                                 thumbnail=track.track.album.images[0].url)))
+                                                                                 thumbnail=track.track.album.images[
+                                                                                     0].url)))
             if track_ is None:
                 return
 

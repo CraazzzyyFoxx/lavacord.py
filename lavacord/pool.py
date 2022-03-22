@@ -335,3 +335,12 @@ class NodePool:
             nodes = cls._nodes.values()
 
         return sorted(nodes, key=lambda n: len(n.players))[0]
+
+    @classmethod
+    async def get_player(cls, guild_id: hikari.Snowflake) -> t.Optional[BasePlayer]:
+        for node in NodePool._nodes.values():
+            player = node.get_player(guild_id)
+            if player is not None:
+                return player
+
+        return None

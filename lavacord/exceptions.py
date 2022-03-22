@@ -23,15 +23,15 @@ DEALINGS IN THE SOFTWARE.
 from .enums import ErrorSeverity
 
 
-class WavelinkError(Exception):
+class LavacordError(Exception):
     """Base WaveLink Exception"""
 
 
-class AuthorizationFailure(WavelinkError):
+class AuthorizationFailure(LavacordError):
     """Exception raised when an invalid password is provided toa node."""
 
 
-class LavalinkException(WavelinkError):
+class LavalinkException(LavacordError):
     """Exception raised when an error occurs talking to Lavalink."""
 
 
@@ -51,23 +51,23 @@ class BuildTrackError(LavalinkException):
         super().__init__(data["error"])
 
 
-class NodeOccupied(WavelinkError):
+class NodeOccupied(LavacordError):
     """Exception raised when node identifiers conflict."""
 
 
-class InvalidIDProvided(WavelinkError):
+class InvalidIDProvided(LavacordError):
     """Exception raised when an invalid ID is passed somewhere in Wavelink."""
 
 
-class ZeroConnectedNodes(WavelinkError):
+class ZeroConnectedNodes(LavacordError):
     """Exception raised when an operation is attempted with nodes, when there are None connected."""
 
 
-class NoMatchingNode(WavelinkError):
+class NoMatchingNode(LavacordError):
     """Exception raised when a Node is attempted to be retrieved with a incorrect identifier."""
 
 
-class QueueException(WavelinkError):
+class QueueException(LavacordError):
     """Base WaveLink Queue exception."""
 
     pass
@@ -107,31 +107,3 @@ class FiltersError(Exception):
         A error message.
         """
         return self._message
-
-
-class PlayerException(Exception):
-    """Base Player Exception"""
-    def __init__(self, message):
-        self.message = message
-        super().__init__(message)
-
-    def __str__(self):
-        return self.message
-
-
-class PlayerNotFound(PlayerException):
-    def __init__(self):
-        message = 'Player not found.'
-        super().__init__(message)
-
-
-class AlreadyConnected(PlayerException):
-    def __init__(self, ctx):
-        message = f'The bot is already in the voice channel. ({ctx.voice_client.channel.path}).'
-        super().__init__(message)
-
-
-class NoVoiceChannel(PlayerException):
-    def __init__(self):
-        message = 'You must be in a voice channel.'
-        super().__init__(message)
