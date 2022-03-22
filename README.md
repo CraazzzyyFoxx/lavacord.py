@@ -103,8 +103,8 @@ bot.run()
 
 ```shell
 # Linux/OS X
-$ pip3 install -U lavaplayer
+$ pip3 install -U lavacord.py
 
 # Windows
-$ pip install -U lavaplayer
+$ pip install -U lavacord.py
 ```
