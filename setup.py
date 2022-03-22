@@ -27,7 +27,7 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
     ],
     keywords='lavalink, discord, discord-lavalink, lavacord.py',
-    packages=["lavacord"],
+    packages=["lavacord", "lavacord.types"],
     install_requires=["aiohttp", "hikari", "yarl", "tekore"],
     project_urls={
         'Bug Reports': 'https://github.com/CraazzzyyFoxx/lavacord.py/issues',
