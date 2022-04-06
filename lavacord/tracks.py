@@ -140,15 +140,11 @@ class SpotifyTrack(YouTubeMusicTrack):
     _icon = Icons.spotify
     _spotify = True
 
-    _thumbnail: str
+    thumbnail: str
 
     @property
     def uri(self):
         return f'https://open.spotify.com/track/{self.identifier}'
-
-    @property
-    def thumbnail(self) -> str:
-        return self._thumbnail
 
     @classmethod
     async def search(

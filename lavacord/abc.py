@@ -58,7 +58,7 @@ __all__ = (
 ST = TypeVar("ST", bound="Searchable")
 
 
-class Track(BaseModel):
+class Track(BaseModel, abc.ABC):
     """A Lavalink track object."""
 
     id: str = Field(alias="track")
@@ -66,7 +66,7 @@ class Track(BaseModel):
     title: str
     identifier: Optional[str] = Field(repr=False)
     uri: Optional[str] = Field(repr=False)
-    is_seekable = Field(alias="isSeekable", repr=False)
+    is_seekable: bool = Field(alias="isSeekable", repr=False)
     author: Optional[str]
     is_stream: bool = Field(alias="isStream", repr=False)
     length: timedelta = Field(repr=False)
@@ -89,8 +89,9 @@ class Track(BaseModel):
                f"Requester: <@{self.requester}>"
 
     @property
+    @abc.abstractmethod
     def thumbnail(self):
-        return None
+        """Track thumbnail"""
 
     @property
     def duration(self) -> timedelta:
@@ -194,8 +195,9 @@ class Playlist(BaseModel):
         raise NotImplementedError
 
     @property
+    @abc.abstractmethod
     def thumbnail(self):
-        return None
+        """Playlist thumbnail"""
 
     @property
     def embed(self) -> hikari.Embed:
