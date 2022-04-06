@@ -29,7 +29,6 @@ import asyncio.exceptions
 import json
 import logging
 import os
-from pprint import pprint
 from typing import (
     Any,
     Callable,
@@ -49,18 +48,18 @@ import tekore
 from . import abc
 from .enums import *
 from .exceptions import *
+from .player import BasePlayer
 from .stats import Stats
 from .websocket import Websocket
-from .player import BasePlayer
-from .tracks import SearchableTrack
 
 __all__ = (
     "Node",
     "NodePool",
 )
 
-PT = TypeVar("PT", bound=SearchableTrack)
+PT = TypeVar("PT", bound=abc.Track)
 PLT = TypeVar("PLT", bound=abc.Playlist)
+BP = TypeVar("BP", bound=BasePlayer)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -125,6 +124,10 @@ class Node:
         return self._port
 
     @property
+    def password(self) -> str:
+        return self._password
+
+    @property
     def region(self) -> Optional[hikari.VoiceRegion]:
         """The voice region of the Node."""
         return self._region
@@ -167,7 +170,7 @@ class Node:
         self._players[voice_state.guild_id] = player
         return player
 
-    def get_player(self, guild_id: hikari.Snowflake) -> Optional[Type[BasePlayer]]:
+    def get_player(self, guild_id: hikari.Snowflake) -> Optional[BP]:
         return self._players.get(guild_id)
 
     async def _get_data(
@@ -201,7 +204,7 @@ class Node:
                          requester: hikari.Snowflake,
                          *,
                          return_first: bool = True,
-                         payload=None
+                         payload: dict = None
                          ) -> List[PT]:
         if payload is None:
             payload = {}
@@ -337,7 +340,7 @@ class NodePool:
         return sorted(nodes, key=lambda n: len(n.players))[0]
 
     @classmethod
-    async def get_player(cls, guild_id: hikari.Snowflake) -> t.Optional[BasePlayer]:
+    async def get_player(cls, guild_id: hikari.Snowflake) -> Optional[BP]:
         for node in NodePool._nodes.values():
             player = node.get_player(guild_id)
             if player is not None:

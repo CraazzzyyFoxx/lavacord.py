@@ -8,15 +8,16 @@ Lavalink connecter
 __title__ = "lavacord"
 __author__ = "CraazzzyyFoxx"
 __license__ = "MIT"
-__version__ = "1.0.0a"
+__version__ = "1.0.2a"
 
-from .client import LavalinkClient
-from .filter import *
-from .tracks import *
-from .exceptions import *
+from .abc import *
+from .client import *
 from .enums import *
-from .pool import Node, NodePool
-from .player import BasePlayer, Player
-from .abc import Playlist, Searchable, Track
 from .events import *
-from .queue import Queue, BaseQueue
+from .exceptions import *
+from .filter import *
+from .player import *
+from .pool import *
+from .queue import *
+from .stats import *
+from .tracks import *

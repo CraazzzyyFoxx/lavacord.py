@@ -27,8 +27,8 @@ SOFTWARE.
 from __future__ import annotations
 
 from collections import deque
-from datetime import timedelta
 from copy import copy
+from datetime import timedelta
 from typing import (
     Generic,
     Iterable,
@@ -40,10 +40,9 @@ from typing import (
     Union
 )
 
-
 from . import abc, exceptions
-from .types.queue import Queue as QueueBase
 from .enums import RepeatMode
+from .types.queue import Queue as QueueBase
 
 __all__ = (
     "BaseQueue",
@@ -380,23 +379,23 @@ class Queue(BaseQueue):
     def set_repeat_mode(self, mode: str):
         self._repeat_mode = RepeatMode(mode)
 
-    def estimated_duration(self, position: Union[int, float]):
+    def estimated_duration(self, position: timedelta):
         current_track = self.current_track
 
         if not current_track:
             return '0:00:00'
-        if current_track.isStream:
+        if current_track.is_stream:
             return 'Infinity'
 
         estimated_time = current_track.length
         estimated_time -= position
 
         if self.upcoming is None:
-            return timedelta(seconds=int(estimated_time / 1000))
+            return estimated_time
 
         for track in self.upcoming:
-            if track.isStream:
+            if track.is_stream:
                 return 'Infinity'
             estimated_time += track.length
 
-        return timedelta(seconds=int(estimated_time / 1000))
+        return estimated_time

@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2021 CraazzzyyFoxx
+Copyright (c) 2022 CraazzzyyFoxx
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,9 +24,7 @@ SOFTWARE.
 
 import typing as t
 
-
 from .exceptions import FiltersError
-
 
 __all__ = ("Filters",)
 

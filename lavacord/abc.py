@@ -35,11 +35,12 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    overload, ClassVar,
+    overload,
+    ClassVar,
 )
 
 import hikari
-import attr
+from pydantic import BaseModel, Field, validator
 
 from .enums import Icons
 
@@ -50,53 +51,50 @@ __all__ = (
     "Searchable",
     "Playlist",
     "Track",
-    "SpotifyInfo"
+    "PlayerUpdate",
+    "PlayerState",
 )
 
 ST = TypeVar("ST", bound="Searchable")
 
 
-@attr.define(kw_only=True)
-class Track:
-    """A Lavalink track object.
-    Attributes
-    ------------
-    id: str
-        The Base64 Track ID, can be used to rebuild track objects.
+class Track(BaseModel):
+    """A Lavalink track object."""
+
+    id: str = Field(alias="track")
+
     title: str
-        The track title.
-    identifier: Optional[str]
-        The tracks' identifier. could be None depending on track type.
-    length:
-        The duration of the track in seconds.
-    uri: Optional[str]
-        The tracks URI. Could be None.
+    identifier: Optional[str] = Field(repr=False)
+    uri: Optional[str] = Field(repr=False)
+    is_seekable = Field(alias="isSeekable", repr=False)
     author: Optional[str]
-        The author of the track. Could be None
-    requester: Optional[hikari.Snowflake]
-        The requester of the track. . Could be None
-    """
+    is_stream: bool = Field(alias="isStream", repr=False)
+    length: timedelta = Field(repr=False)
+    source_mame: str = Field(alias="sourceName", repr=False)
+    position: int = Field(repr=False)
 
-    track: str = attr.field(default=None)
-    title: str = attr.field()
-    identifier: Optional[str] = attr.field(default=None)
-    uri: Optional[str] = attr.field()
-    isSeekable: bool = attr.field()
-    author: Optional[str] = attr.field()
-    isStream: bool = attr.field()
-    length: float = attr.field()
-    sourceName: str = attr.field()
-    position: str = attr.field()
-    requester: Optional[hikari.Snowflake] = attr.field(default=None)
+    requester: hikari.Snowflake = Field(repr=False)
 
-    def __repr__(self):
-        return f"[{self.title} - {self.author}]({self.uri}) \n > " \
-               f"({timedelta(milliseconds=self.length) if not self.isStream else 'Infinity'}) " \
+    @validator("position", pre=True)
+    def parse_position(cls, value):
+        return int(value)
+
+    @validator("length", pre=True)
+    def parse_length(cls, value):
+        return timedelta(microseconds=value)
+
+    def __str__(self):
+        return f"[{self.title} - {self.author}]({self.uri}) \n" \
+               f"({self.length if not self.is_stream else 'Infinity'}) " \
                f"Requester: <@{self.requester}>"
 
     @property
     def thumbnail(self):
         return None
+
+    @property
+    def duration(self) -> timedelta:
+        return self.length
 
 
 class Searchable(metaclass=abc.ABCMeta):
@@ -165,17 +163,16 @@ class Searchable(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
-@attr.define(kw_only=True)
-class Playlist(metaclass=abc.ABCMeta):
+class Playlist(BaseModel):
     """An ABC that defines the basic structure of a lavalink playlist resource"""
 
     _icon: ClassVar[Icons]
     _color: ClassVar[hikari.Color]
 
-    name: str = attr.field()
-    selectedTrack: int = attr.field()
-    tracks: List[Track] = attr.field()
-    requester: Optional[hikari.Snowflake] = attr.field()
+    name: str
+    track_count: int = Field(alias="selectedTrack")
+    tracks: List[Track]
+    requester: hikari.Snowflake
 
     @overload
     @classmethod
@@ -206,14 +203,25 @@ class Playlist(metaclass=abc.ABCMeta):
         emb.description = self.name
         if self.thumbnail:
             emb.set_thumbnail(self.thumbnail)
-        emb.add_field(name='Duration',
-                      value=str(timedelta(milliseconds=sum([track.length for track in self.tracks]))))
+        emb.add_field(name='Duration', value=str(sum([track.length for track in self.tracks])))
         emb.set_author(icon=self._icon, name='Playlist Added to Queue')
         return emb
 
 
-@attr.define(kw_only=True)
-class SpotifyInfo:
-    id: str = attr.field()
-    thumbnail: str = attr.field()
+class PlayerState(BaseModel):
+    time: datetime
+    position: timedelta
+    connected: bool
 
+    @validator("time", pre=True)
+    def parse_time(cls, value):
+        return datetime.fromtimestamp(value, tz=timezone.utc)
+
+    @validator("position", pre=True)
+    def parse_position(cls, value):
+        return timedelta(microseconds=value)
+
+
+class PlayerUpdate(BaseModel):
+    guild_id: hikari.Snowflake = Field(alias="guildId")
+    state: PlayerState

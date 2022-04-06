@@ -26,18 +26,13 @@ from __future__ import annotations
 
 import asyncio
 import typing as t
+from datetime import datetime, timezone
 
-from datetime import timedelta
-
-import attr
 import hikari
 import tekore
+from tekore.model import FullAlbum, FullPlaylist, SimpleTrack, PlaylistTrack
 
-from tekore._model import FullAlbum, FullPlaylist, SimpleTrack, PlaylistTrack
-
-from airy.utils import utcnow
-
-from .abc import Playlist, Track, SpotifyInfo
+from .abc import Playlist, Track
 from .enums import Icons
 
 if t.TYPE_CHECKING:
@@ -57,9 +52,9 @@ __all__ = (
 )
 
 ST = t.TypeVar("ST", bound="SearchableTrack")
+PT = t.TypeVar("PT", bound="Playlist")
 
 
-@attr.define(kw_only=True, repr=False)
 class SearchableTrack(Track):
     _search_type: t.ClassVar[str]
     _icon: t.ClassVar[Icons]
@@ -75,18 +70,21 @@ class SearchableTrack(Track):
             *,
             return_first: bool = True
     ) -> t.List[Track]:
-        tracks = await node.get_tracks(cls, query=query, requester=requester, return_first=return_first)
+        tracks = await node.get_tracks(cls,
+                                       query=query,
+                                       requester=requester,
+                                       return_first=return_first
+                                       )
 
         if tracks is not None:
             return tracks
 
     @property
     def embed(self) -> hikari.Embed:
-        emb = hikari.Embed(color=self._color, timestamp=utcnow())
+        emb = hikari.Embed(color=self._color, timestamp=datetime.now(timezone.utc))
         emb.set_thumbnail(self.thumbnail)
         emb.description = self.title
-        emb.add_field(name='Duration', value=str(timedelta(milliseconds=self.length)
-                                                 if not self.isStream else 'Infinity'))
+        emb.add_field(name='Duration', value=str(self.length) if not self.is_stream else 'Infinity')
         emb.set_author(icon=self._icon, name='Track Added to Queue')
         return emb
 
@@ -136,22 +134,21 @@ class SoundCloudTrack(SearchableTrack):
     _spotify = False
 
 
-@attr.define(kw_only=True, repr=False)
 class SpotifyTrack(YouTubeMusicTrack):
     """A track retrieved via YouTubeMusic with a Spotify URL/ID."""
     _color = hikari.Color.from_hex_code("#1ed760")
     _icon = Icons.spotify
     _spotify = True
 
-    spotify_info: SpotifyInfo = attr.field()
+    _thumbnail: str
 
     @property
     def uri(self):
-        return f'https://open.spotify.com/track/{self.spotify_info.id}'
+        return f'https://open.spotify.com/track/{self.identifier}'
 
     @property
     def thumbnail(self) -> str:
-        return self.spotify_info.thumbnail
+        return self._thumbnail
 
     @classmethod
     async def search(
@@ -164,16 +161,13 @@ class SpotifyTrack(YouTubeMusicTrack):
     ) -> t.List[Track]:
         track_: tekore.model.FullTrack = await node.spotify.track(query)
         artists = [artist.name for artist in track_.artists]
-        query = f'{track_.name} {", ".join(artists)}'
         return await node.get_tracks(cls,
-                                     query,
-                                     requester,
-                                     payload=dict(spotify_info=SpotifyInfo(id=track_.id,
-                                                                           thumbnail=track_.album.images[0].url)),
+                                     query=f'{track_.name} {", ".join(artists)}',
+                                     requester=requester,
+                                     payload={"identifier": track_.id, "_thumbnail": track_.album.images[0].url},
                                      return_first=return_first)
 
 
-@attr.define(kw_only=True, repr=False)
 class YouTubePlaylist(Playlist):
     _icon = Icons.youtube
     _color = hikari.Color.from_hex_code("#ff0101")
@@ -181,7 +175,7 @@ class YouTubePlaylist(Playlist):
 
     @classmethod
     async def search(
-            cls: t.Type[ST],
+            cls: t.Type[PT],
             query: str,
             requester: hikari.Snowflake,
             node: Node = ...,
@@ -189,7 +183,6 @@ class YouTubePlaylist(Playlist):
         return await node.get_playlist(cls, YouTubeTrack, query, requester)
 
 
-@attr.define(kw_only=True, repr=False)
 class YouTubeMusicPlaylist(Playlist):
     _icon = Icons.youtubemusic
     _color = hikari.Color.from_hex_code("#ff0101")
@@ -197,7 +190,7 @@ class YouTubeMusicPlaylist(Playlist):
 
     @classmethod
     async def search(
-            cls: t.Type[ST],
+            cls: t.Type[PT],
             query: str,
             requester: hikari.Snowflake,
             node: Node = ...,
@@ -210,13 +203,13 @@ class SpotifyAlbum(Playlist):
     _color = hikari.Color.from_hex_code("#1ed760")
     _spotify = True
 
-    name: str = attr.field()
-    uri: str = attr.field()
-    thumbnail: str = attr.field()
+    name: str
+    uri: str
+    thumbnail: str
 
     @classmethod
     async def search(
-            cls: t.Type[ST],
+            cls: t.Type[PT],
             query: str,
             requester: hikari.Snowflake,
             node: Node = None,
@@ -224,21 +217,19 @@ class SpotifyAlbum(Playlist):
         playlist: FullAlbum = await node.spotify.album(query)
         tracks = []
 
-        async def func(track: SimpleTrack):
-            artists = [artist.name for artist in track.artists]
-            query = f'{track.name} {", ".join(artists)}'
-            print(track.preview_url)
-            print(track.href)
-            track_ = await node.get_tracks(SpotifyTrack,
-                                           query=query,
-                                           requester=requester,
-                                           return_first=True,
-                                           payload=dict(spotify_info=SpotifyInfo(id=query,
-                                                                                 thumbnail=track.preview_url)))
-            if track_ is None:
+        async def func(spotify_track: SimpleTrack):
+            artists = [artist.name for artist in spotify_track.artists]
+            lavalink_track = await node.get_tracks(SpotifyTrack,
+                                                   query=f'{spotify_track.name} {", ".join(artists)}',
+                                                   requester=requester,
+                                                   return_first=True,
+                                                   payload={"identifier": spotify_track.id,
+                                                            "_thumbnail": spotify_track.preview_url}
+                                                   )
+            if lavalink_track is None:
                 return
 
-            tracks.append(track_)
+            tracks.append(lavalink_track)
 
         tasks = []
 
@@ -254,40 +245,38 @@ class SpotifyAlbum(Playlist):
                    requester=requester)
 
 
-@attr.define(kw_only=True, repr=False)
 class SpotifyPlaylist(Playlist):
     _icon = Icons.spotify
     _color = hikari.Color.from_hex_code("#1ed760")
     _spotify = False
 
-    name: str = attr.field()
-    uri: str = attr.field()
-    thumbnail: str = attr.field()
+    name: str
+    uri: str
+    thumbnail: str
 
     @classmethod
     async def search(
-            cls: t.Type[ST],
+            cls: t.Type[PT],
             query: str,
             requester: hikari.Snowflake,
             node: Node = None,
-    ) -> SpotifyAlbum:
+    ) -> SpotifyPlaylist:
         playlist: FullPlaylist = await node.spotify.playlist(query)
         tracks = []
 
-        async def func(track: PlaylistTrack):
-            artists = [artist.name for artist in track.track.artists]
-            query = f'{track.track.name} {", ".join(artists)}'
-            track_ = await node.get_tracks(SpotifyTrack,
-                                           query=query,
-                                           requester=requester,
-                                           return_first=True,
-                                           payload=dict(spotify_info=SpotifyInfo(id=track.track.id,
-                                                                                 thumbnail=track.track.album.images[
-                                                                                     0].url)))
-            if track_ is None:
+        async def func(spotify_track: PlaylistTrack):
+            artists = [artist.name for artist in spotify_track.track.artists]
+            lavalink_track = await node.get_tracks(SpotifyTrack,
+                                                   query=f'{spotify_track.track.name} {", ".join(artists)}',
+                                                   requester=requester,
+                                                   return_first=True,
+                                                   payload={"identifier": spotify_track.track.id,
+                                                            "_thumbnail": spotify_track.track.album.images[0].url}
+                                                   )
+            if lavalink_track is None:
                 return
 
-            tracks.append(track_)
+            tracks.append(lavalink_track)
 
         tasks = []
 

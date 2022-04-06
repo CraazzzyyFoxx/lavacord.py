@@ -33,7 +33,7 @@ from typing import Any, Dict, TYPE_CHECKING, Optional
 import aiohttp
 import hikari
 
-from .abc import Track
+from .abc import Track, PlayerUpdate
 from .backoff import Backoff
 from .events import *
 from .stats import Stats
@@ -61,9 +61,9 @@ class Websocket:
     @property
     def headers(self) -> Dict[str, Any]:
         return {
-            "Authorization": self.node._password,
+            "Authorization": self.node.password,
             "User-Id": str(self.node.bot.get_me().id),
-            "Client-Name": "Lavaplayer",
+            "Client-Name": "Lavacord",
             'Resume-Key': self.node.resume_key
         }
 
@@ -75,7 +75,7 @@ class Websocket:
         if self.is_connected():
             assert isinstance(self.websocket, aiohttp.ClientWebSocketResponse)
             await self.websocket.close(
-                code=1006, message=b"Lavaplayer: Attempting reconnection."
+                code=1006, message=b"Lavacord: Attempting reconnection."
             )
 
         host = self.host if self.node._https else self.ws_host
@@ -128,7 +128,7 @@ class Websocket:
                 logger.debug(f"Received Payload:: <{msg.data}>")
 
                 if msg.data == 1011:
-                    logger.error('Internal Lavalink Error encountered. Terminating WaveLink without retries.'
+                    logger.error('Internal Lavalink Error encountered. Terminating Lavacord without retries.'
                                  'Consider updating your Lavalink Server.')
 
                     self.listener.cancel()
@@ -145,10 +145,7 @@ class Websocket:
             self.node.stats = Stats(self.node, data)
             return
 
-        try:
-            player = self.node.get_player(hikari.Snowflake(self.node.bot.cache.get_guild(int(data["guildId"]))))
-        except KeyError:
-            return
+        player = self.node.get_player(hikari.Snowflake(self.node.bot.cache.get_guild(data["guildId"])))
 
         if player is None:
             return
@@ -161,11 +158,11 @@ class Websocket:
 
         elif op == "playerUpdate":
             logger.debug(f"op: playerUpdate:: {data}")
-            await player.update_state(data)
+
+            await player.update_state(PlayerUpdate(**data))
 
     async def _get_event_payload(self, data: Dict[str, Any], player: BasePlayer) -> hikari.Event:
         name = data.pop('type')
-        data.pop("guildId")
         if name == "WebSocketClosedEvent":
             event = WebSocketClosedEvent(**data)
 
@@ -173,28 +170,24 @@ class Websocket:
             track = await self.node.build_track(cls=Track, identifier=data.pop('track'))
             player._source = None
             event = TrackEndEvent(track=track,
-                                  guild_id=player.voice_state.guild_id,
                                   player=player,
                                   **data)
 
         elif name == "TrackStartEvent":
             track = await self.node.build_track(cls=Track, identifier=data.pop('track'))
             event = TrackStartEvent(track=track,
-                                    guild_id=player.voice_state.guild_id,
                                     player=player,
                                     **data)
 
         elif name == "TrackExceptionEvent":
             track = await self.node.build_track(cls=Track, identifier=data.pop('track'))
             event = TrackExceptionEvent(track=track,
-                                        guild_id=player.voice_state.guild_id,
                                         player=player,
                                         **data)
 
         else:
             track = await self.node.build_track(cls=Track, identifier=data.pop('track'))
             event = TrackStuckEvent(track=track,
-                                    guild_id=player.voice_state.guild_id,
                                     player=player,
                                     **data)
 

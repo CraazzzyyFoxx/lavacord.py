@@ -32,9 +32,9 @@ import typing as t
 import hikari
 import yarl
 
-from . import abc
-from .stats import ConnectionInfo
+from . import abc, Playlist
 from .queue import Queue
+from .stats import ConnectionInfo
 from .tracks import *
 
 if t.TYPE_CHECKING:
@@ -57,15 +57,13 @@ class BasePlayer:
                  node: Node):
         self._connected: bool = False
         self._voice_state: ConnectionInfo = ConnectionInfo(guild_id=guild_id,
-                                                           channel_id=channel_id,
-                                                           session_id=None)
+                                                           channel_id=channel_id)
 
         if not node:
             node = NodePool.get_node()
         self.node: Node = node
 
-        self.last_update: t.Optional[datetime.datetime] = None
-        self.last_position: t.Optional[float] = None
+        self.last_state: t.Optional[abc.PlayerState] = None
 
         self.volume: float = 100
         self._paused: bool = False
@@ -93,20 +91,16 @@ class BasePlayer:
         return self._source
 
     @property
-    def position(self) -> float:
+    def position(self) -> datetime.timedelta:
         """The current seek position of the playing source in seconds. If nothing is playing this defaults to ``0``."""
         if not self.is_playing():
-            return 0
+            return datetime.timedelta(seconds=0)
 
         if self.is_paused():
-            return min(self.last_position, self.source.length)
+            return self.last_state.position
 
-        delta = (
-                datetime.datetime.now(datetime.timezone.utc) - self.last_update
-        ).total_seconds()
-        position = round(self.last_position + delta, 1)
-
-        return min(position, self.source.length)
+        delta = datetime.datetime.now(datetime.timezone.utc) - self.last_state.time
+        return self.last_state.position + delta
 
     def is_connected(self) -> bool:
         """Indicates whether the player is connected to voice."""
@@ -120,15 +114,11 @@ class BasePlayer:
         """Indicates wether the currently playing track is paused."""
         return self._paused
 
-    async def update_state(self, state: t.Dict[str, t.Any]) -> None:
-        state = state.get("state")
+    async def update_state(self, state: abc.PlayerUpdate) -> None:
         if not state:
             return
 
-        self.last_update = datetime.datetime.fromtimestamp(
-            state.get("time", 0) / 1000, datetime.timezone.utc
-        )
-        self.last_position = round(state.get("position", 0), 1)
+        self.last_state = state.state
 
     async def connect(self, *, self_deaf: bool = True) -> None:
         await self.node.bot.update_voice_state(self.voice_state.guild_id,
@@ -186,7 +176,7 @@ class BasePlayer:
         payload = {
             "op": "play",
             "guildId": str(self.guild.id),
-            "track": source.track,
+            "track": source.id,
             "noReplace": not replace,
             "startTime": str(start),
         }
@@ -195,14 +185,16 @@ class BasePlayer:
 
         await self.node._websocket.send(payload)
 
-        logger.debug(f"Started playing track:: {str(source)} ({self.voice_state.channel_id})")
+        logger.debug(f"Started playing track:: {source} ({self.voice_state.channel_id})")
         return source
 
     async def stop(self) -> None:
         """|coro|
         Stop the Player's currently playing song.
         """
-        await self.node._websocket.send(dict(op="stop", guildId=str(self.guild.id)))
+        await self.node._websocket.send({
+            "op": "stop", "guildId": str(self.guild.id)}
+        )
         logger.debug(f"Current track stopped:: {str(self.source)} ({self.voice_state.channel_id})")
         self._source = None
 
@@ -215,7 +207,7 @@ class BasePlayer:
             A bool indicating if the player's paused state should be set to True or False.
         """
         await self.node._websocket.send(
-            dict(op="pause", guildId=str(self.guild.id), pause=pause)
+            {"op": "pause", "guildId": str(self.guild.id), "pause": pause}
         )
         self._paused = pause
         logger.info(f"Set pause:: {self._paused} ({self.voice_state.channel_id})")
@@ -224,13 +216,15 @@ class BasePlayer:
         """|coro|
         Pauses the player if it was playing.
         """
-        await self.set_pause(True)
+        if not self._paused:
+            await self.set_pause(True)
 
     async def resume(self) -> None:
         """|coro|
         Resumes the player if it was paused.
         """
-        await self.set_pause(False)
+        if self._paused:
+            await self.set_pause(False)
 
     async def set_volume(self, volume: int) -> None:
         """|coro|
@@ -242,7 +236,7 @@ class BasePlayer:
         """
         self.volume = max(min(volume, 1000), 0)
         await self.node._websocket.send(
-            dict(op="volume", guildId=str(self.guild.id), volume=self.volume)
+            {"op": "volume", "guildId": str(self.guild.id), "volume": self.volume}
         )
         logger.debug(f"Set volume:: {self.volume} ({self.voice_state.channel_id})")
 
@@ -259,17 +253,20 @@ class BasePlayer:
         )
 
     async def destroy(self):
+        """|coro|
+               Destroy the player..
+                """
         await self.node._websocket.send(
-            dict(op="destroy", guildId=str(self.guild.id))
+            {"op": "destroy", "guildId": str(self.guild.id)}
         )
         logger.debug(f'Player destroyed:: {self.voice_state.channel_id}')
         self.node._players.pop(self.voice_state.guild_id)
         await self.disconnect()
-        del self
 
 
 class Player(BasePlayer):
-    async def search_tracks(self, query: str, member: hikari.Snowflake):
+    async def search_tracks(self, query: str, member: hikari.Snowflake) -> t.Optional[
+        t.Union[SearchableTrack, Playlist]]:
         result = yarl.URL(query)
         if not result.host:
             data = await YouTubeTrack.search(query, member, self.node, return_first=True)

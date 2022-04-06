@@ -24,18 +24,18 @@ SOFTWARE.
 
 from __future__ import annotations
 
+import datetime
 import typing as t
 
-import attr
-from hikari import Event
+import hikari
+from pydantic import BaseModel, Field, validator
 
 from .abc import Track
+from .enums import ErrorSeverity
 from .player import BasePlayer
-
 
 if t.TYPE_CHECKING:
     from .pool import Node
-
 
 __all__ = ("NodeReady",
            "TrackStartEvent",
@@ -46,93 +46,107 @@ __all__ = ("NodeReady",
            "PlayerUpdateEvent",
            "WebSocketClosedEvent")
 
-
-@attr.define(kw_only=True)
-class NodeReady(Event):
-    app = attr.field(default=None)
-    node: Node = attr.field()
+BP = t.TypeVar("BP", bound=BasePlayer)
 
 
-@attr.define(kw_only=True)
-class TrackStartEvent(Event):
+class NodeReady(BaseModel, hikari.Event):
+    node: Node
+
+    @property
+    def app(self) -> hikari.traits.RESTAware:
+        return self.node.bot
+
+
+class TrackStartEvent(BaseModel, hikari.Event):
     """
     Event on track start.
     """
-    app = attr.field(default=None)
-    track: Track = attr.field()
-    guild_id: int = attr.field()
-    player: BasePlayer = attr.field()
+    track: Track
+    guild_id: hikari.Snowflake = Field(alias="guildId")
+    player: BP
+
+    @property
+    def app(self) -> hikari.traits.RESTAware:
+        return self.player.node.bot
 
 
-@attr.define(kw_only=True)
-class TrackEndEvent(Event):
+class TrackEndEvent(BaseModel, hikari.Event):
     """
     Event on track end.
     """
-    app = attr.field(default=None)
-    track: Track = attr.field()
-    guild_id: int = attr.field()
-    reason: str = attr.field()
-    player: BasePlayer = attr.field()
+    track: Track
+    guild_id: hikari.Snowflake = Field(alias="guildId")
+    reason: str
+    player: BP
+
+    @property
+    def app(self) -> hikari.traits.RESTAware:
+        return self.player.node.bot
 
 
-@attr.define(kw_only=True)
-class TrackExceptionEvent(Event):
+class TrackExceptionEvent(BaseModel, hikari.Event):
     """
     Event on track exception.
     """
-    app = attr.field(default=None)
-    track: Track = attr.field()
-    guild_id: int = attr.field()
-    exception: str = attr.field()
-    message: str = attr.field()
-    severity: str = attr.field()
-    cause: str = attr.field()
-    player: BasePlayer = attr.field()
+    track: Track
+    guild_id: hikari.Snowflake = Field(alias="guildId")
+    exception: str
+    message: str
+    severity: ErrorSeverity
+    cause: str
+    player: BP
+
+    @property
+    def app(self) -> hikari.traits.RESTAware:
+        return self.player.node.bot
 
 
-@attr.define(kw_only=True)
-class TrackStuckEvent(Event):
+class TrackStuckEvent(BaseModel, hikari.Event):
     """
     Event on track stuck.
     """
-    app = attr.field(default=None)
-    track: Track = attr.field()
-    guild_id: int = attr.field()
-    thresholdMs: str = attr.field()
-    player: BasePlayer = attr.field()
+    track: Track
+    guild_id: hikari.Snowflake = Field(alias="guildId")
+    thresholdMs: str
+    player: BP
+
+    @property
+    def app(self) -> hikari.traits.RESTAware:
+        return self.player.node.bot
 
 
-@attr.define(kw_only=True)
-class WebSocketClosedEvent(Event):
+class WebSocketClosedEvent(BaseModel, hikari.Event):
     """
     Event on websocket closed.
     """
-    app = attr.field(default=None)
-    track: Track = attr.field()
-    guild_id: int = attr.field()
-    code: int = attr.field()
-    reason: str = attr.field()
-    byRemote: bool = attr.field()
+    app: hikari.RESTAware
+    track: Track
+    guild_id: hikari.Snowflake
+    code: int
+    reason: str
+    by_remote: bool = Field(alias="byRemote")
 
 
-@attr.define(kw_only=True)
-class PlayerUpdateEvent(Event):
+class PlayerUpdateEvent(BaseModel, hikari.Event):
     """
     Event on player update.
     """
-    app = attr.field(default=None)
-    guild_id: int = attr.field()
-    time: int = attr.field()
-    position: t.Union[int, None] = attr.field()
-    connected: bool = attr.field()
+    app: hikari.RESTAware
+    track: Track
+    guild_id: hikari.Snowflake
+    time: datetime.datetime
+    position: t.Optional[int]
+    connected: bool
+
+    @validator("time", pre=True)
+    def parse_position(cls, value):
+        return datetime.datetime.fromtimestamp(value)
 
 
-@attr.define(kw_only=True)
-class ErrorEvent(Event):
+class ErrorEvent(BaseModel, hikari.Event):
     """
     Event on error.
     """
-    app = attr.field(default=None)
-    guild_id: int = attr.field()
-    exception: Exception = attr.field()
+    app: hikari.RESTAware
+    guild_id: hikari.Snowflake
+    exception: Exception

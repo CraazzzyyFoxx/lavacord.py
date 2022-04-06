@@ -29,7 +29,6 @@ from hikari.internal.enums import Enum
 
 __all__ = (
     "RepeatMode",
-    "ShuffleMode",
     "Icons",
     "LoadType",
     "ErrorSeverity"
@@ -40,11 +39,6 @@ class RepeatMode(str, Enum):
     OFF = "OFF"
     ONE = "ONE"
     ALL = "ALL"
-
-
-class ShuffleMode(int, Enum):
-    OFF = 0
-    ON = 1
 
 
 class ErrorSeverity(str, Enum):

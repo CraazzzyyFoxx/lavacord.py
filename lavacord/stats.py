@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import typing as t
 
-import attr
 import hikari
 
 if t.TYPE_CHECKING:
@@ -41,14 +40,22 @@ __all__ = (
 )
 
 
-@attr.define(kw_only=True)
 class ConnectionInfo:
     """
-    A info for Connection just use to save the connection information.
+    A Connection info just use to save the connection information.
     """
-    guild_id: hikari.Snowflake = attr.field()
-    session_id: hikari.Snowflake = attr.field()
-    channel_id: t.Optional[hikari.Snowflake] = attr.field(default=None)
+
+    __slots__ = ("guild_id", "session_id", "channel_id")
+
+    def __init__(self,
+                 guild_id: hikari.Snowflake,
+                 channel_id: hikari.Snowflake,
+                 *,
+                 session_id: t.Optional[str] = None
+                 ):
+        self.guild_id = guild_id
+        self.session_id = session_id
+        self.channel_id = channel_id
 
 
 class Penalty:

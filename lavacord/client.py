@@ -27,10 +27,14 @@ import typing as t
 
 import hikari
 
-from .pool import Node, NodePool
-from .stats import ConnectionInfo
 from .exceptions import NoMatchingNode
 from .player import BasePlayer
+from .pool import Node, NodePool
+from .stats import ConnectionInfo
+
+__all__ = (
+    "LavalinkClient",
+)
 
 
 class LavalinkClient:
@@ -121,7 +125,7 @@ class LavalinkClient:
 
         Parameters
         ---------
-        guild_id: :class:`int`
+        guild_id: :class:`hikari.Snowflake`
             guild id for server
         """
         while not (await self.get_player(guild_id)):
@@ -134,12 +138,12 @@ class LavalinkClient:
 
         Parameters
         ---------
-        guild_id: :class:`int`
+        guild_id: :class:`hikari.Snowflake`
             guild id for server
 
         Raises
         --------
-        :exc:`.NodeError`
+        :exc:`.NoMatchingNode`
             If guild not found in nodes cache.
         """
         player = await self.get_player(guild_id)
