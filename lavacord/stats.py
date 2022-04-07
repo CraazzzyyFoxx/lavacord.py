@@ -79,7 +79,7 @@ class PlayerUpdate:
 
     def __init__(self, data: dict):
         self.guild_id: hikari.Snowflake = data.get("guildId")
-        self.state = PlayerState(data)
+        self.state = PlayerState(data.get("state"))
 
 
 class Penalty:
