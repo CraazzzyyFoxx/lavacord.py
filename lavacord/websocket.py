@@ -33,10 +33,10 @@ from typing import Any, Dict, TYPE_CHECKING, Optional
 import aiohttp
 import hikari
 
-from .abc import Track, PlayerUpdate
 from .backoff import Backoff
 from .events import *
-from .stats import Stats
+from .stats import Stats, PlayerUpdate
+from .utils import _from_json, _to_json
 
 if TYPE_CHECKING:
     from .pool import Node
@@ -98,7 +98,7 @@ class Websocket:
             self.listener = asyncio.create_task(self.listen())
 
         if self.is_connected():
-            self.dispatch(NodeReady(node=self.node))
+            await self.node.bot.dispatch(NodeReady(node=self.node))
             logger.info(f"Connection established...{self.node.__repr__()}")
 
             resume = {
@@ -134,7 +134,7 @@ class Websocket:
                     self.listener.cancel()
                     return
 
-                asyncio.create_task(self.process_data(msg.json()))
+                asyncio.create_task(self.process_data(msg.json(loads=_from_json)))
 
     async def process_data(self, data: Dict[str, Any]) -> None:
         op = data.pop("op")
@@ -142,67 +142,52 @@ class Websocket:
             return
 
         if op == "stats":
-            self.node.stats = Stats(self.node, data)
+            self.node.stats = Stats(data)
             return
 
-        player = self.node.get_player(hikari.Snowflake(self.node.bot.cache.get_guild(data["guildId"])))
-
-        if player is None:
-            return
+        player = self.node.get_player(hikari.Snowflake(data.pop("guildId")))
+        assert player is not None
 
         if op == 'event':
-            event = await self._get_event_payload(data, player)
+            event = self._get_event_payload(data, player)
             logger.debug(f'op: event:: {event}')
 
-            self.dispatch(event)
+            await self.node.bot.dispatch(event)
 
         elif op == "playerUpdate":
             logger.debug(f"op: playerUpdate:: {data}")
+            await player.update_state(PlayerUpdate(data))
 
-            await player.update_state(PlayerUpdate(**data))
-
-    async def _get_event_payload(self, data: Dict[str, Any], player: BasePlayer) -> hikari.Event:
+    def _get_event_payload(self, data: Dict[str, Any], player: BasePlayer) -> hikari.Event:
         name = data.pop('type')
         if name == "WebSocketClosedEvent":
-            event = WebSocketClosedEvent(**data)
+            event = WebSocketClosedEvent(self.node.bot, data)
+        else:
+            track = data.pop('track')
+            if name == "TrackEndEvent":
+                player._source = None
+                event = TrackEndEvent(track=track,
+                                      player=player,
+                                      **data)
 
-        elif name == "TrackEndEvent":
-            track = await self.node.build_track(cls=Track, identifier=data.pop('track'))
-            player._source = None
-            event = TrackEndEvent(track=track,
-                                  player=player,
-                                  **data)
-
-        elif name == "TrackStartEvent":
-            track = await self.node.build_track(cls=Track, identifier=data.pop('track'))
-            event = TrackStartEvent(track=track,
-                                    player=player,
-                                    **data)
-
-        elif name == "TrackExceptionEvent":
-            track = await self.node.build_track(cls=Track, identifier=data.pop('track'))
-            event = TrackExceptionEvent(track=track,
+            elif name == "TrackStartEvent":
+                event = TrackStartEvent(track=track,
                                         player=player,
                                         **data)
 
-        else:
-            track = await self.node.build_track(cls=Track, identifier=data.pop('track'))
-            event = TrackStuckEvent(track=track,
-                                    player=player,
-                                    **data)
+            elif name == "TrackExceptionEvent":
+                event = TrackExceptionEvent(track=track,
+                                            player=player,
+                                            **data)
+            else:
+                event = TrackStuckEvent(track=track,
+                                        player=player,
+                                        **data)
 
         return event
-
-    def dispatch(self, event) -> None:
-        self.node.bot.dispatch(event)
 
     async def send(self, data: dict) -> None:
         if self.is_connected():
             assert isinstance(self.websocket, aiohttp.ClientWebSocketResponse)
             logger.debug(f"Sending Payload:: {data}")
-
-            data_str = self.node._dumps(data)
-            if isinstance(data_str, bytes):
-                data_str = data_str.decode("utf-8")
-
-            await self.websocket.send_str(data_str)
+            await self.websocket.send_str(_to_json(data))

@@ -374,8 +374,6 @@ class Queue(BaseQueue):
             while self.current_index >= index:
                 self.put_at_front(self._history.get())
 
-        return self._get()
-
     def set_repeat_mode(self, mode: str):
         self._repeat_mode = RepeatMode(mode)
 

@@ -26,12 +26,10 @@ SOFTWARE.
 from __future__ import annotations
 
 import asyncio.exceptions
-import json
 import logging
 import os
 from typing import (
     Any,
-    Callable,
     ClassVar,
     Dict,
     List,
@@ -50,6 +48,7 @@ from .enums import *
 from .exceptions import *
 from .player import BasePlayer
 from .stats import Stats
+from .utils import _from_json
 from .websocket import Websocket
 
 __all__ = (
@@ -83,7 +82,6 @@ class Node:
             *,
             https: bool = False,
             heartbeat: float = 30,
-            dumps: Callable[[Any], str],
             region: Optional[hikari.VoiceRegion] = None,
             spotify_client_id: Optional[str] = None,
             spotify_client_secret: Optional[str] = None,
@@ -99,7 +97,6 @@ class Node:
         self._region: Optional[hikari.VoiceRegion] = region
         self._identifier: str = identifier or str(os.urandom(8).hex())
         self.resume_key = resume_key or str(os.urandom(8).hex())
-        self._dumps: Callable[[Any], str] = dumps
 
         self._players: Dict[hikari.Snowflake, BasePlayer] = {}
         self._websocket: Optional[Websocket] = None
@@ -165,7 +162,7 @@ class Node:
         self._websocket = Websocket(node=self)
         await self._websocket.connect()
 
-    async def create_player(self, voice_state: hikari.VoiceState, cls=BasePlayer):
+    async def create_player(self, voice_state: hikari.VoiceState, cls=BasePlayer) -> BP:
         player = cls(voice_state.guild_id, voice_state.channel_id, node=self)
         self._players[voice_state.guild_id] = player
         return player
@@ -173,14 +170,16 @@ class Node:
     def get_player(self, guild_id: hikari.Snowflake) -> Optional[BP]:
         return self._players.get(guild_id)
 
-    async def _get_data(
-            self, endpoint: str, params: dict
-    ) -> Tuple[Dict[str, Any], aiohttp.ClientResponse]:
+    async def _get_data(self,
+                        endpoint: str,
+                        params: dict
+                        ) -> Tuple[Dict[str, Any], aiohttp.ClientResponse]:
+
         headers = {"Authorization": self._password}
-        async with self._websocket.session.get(
-                f"{self._websocket.host}/{endpoint}", headers=headers, params=params
-        ) as resp:
-            data = await resp.json()
+        url = f"{self._websocket.host}/{endpoint}"
+
+        async with self._websocket.session.get(url, headers=headers, params=params) as resp:
+            data = await resp.json(loads=_from_json)
 
         return data, resp
 
@@ -286,7 +285,6 @@ class NodePool:
             spotify_client_id: Optional[str] = None,
             spotify_client_secret: Optional[str] = None,
             identifier: str = None,
-            dumps: Callable[[Any], str] = json.dumps,
             resume_key: Optional[str] = None,
     ) -> Node:
 
@@ -304,7 +302,6 @@ class NodePool:
             spotify_client_id=spotify_client_id,
             spotify_client_secret=spotify_client_secret,
             identifier=identifier,
-            dumps=dumps,
             resume_key=resume_key
         )
 

@@ -36,6 +36,8 @@ __all__ = (
     "LavalinkClient",
 )
 
+BP = t.TypeVar("BP", bound=BasePlayer)
+
 
 class LavalinkClient:
     """
@@ -63,13 +65,13 @@ class LavalinkClient:
         return NodePool._nodes
 
     @staticmethod
-    async def create_player(voice_state: hikari.VoiceState, cls=BasePlayer) -> BasePlayer:
+    async def create_player(voice_state: hikari.VoiceState, cls=BasePlayer) -> BP:
         node = NodePool.get_node()
         player = await node.create_player(voice_state, cls)
         return player
 
     @staticmethod
-    async def get_player(guild_id: hikari.Snowflake) -> t.Optional[BasePlayer]:
+    async def get_player(guild_id: hikari.Snowflake) -> t.Optional[BP]:
         for node in NodePool._nodes.values():
             player = node.get_player(guild_id)
             if player is not None:

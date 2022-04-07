@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-
 from __future__ import annotations
 
 import datetime
@@ -34,7 +33,7 @@ import yarl
 
 from . import abc, Playlist
 from .queue import Queue
-from .stats import ConnectionInfo
+from .stats import ConnectionInfo, PlayerUpdate, PlayerState
 from .tracks import *
 
 if t.TYPE_CHECKING:
@@ -63,7 +62,7 @@ class BasePlayer:
             node = NodePool.get_node()
         self.node: Node = node
 
-        self.last_state: t.Optional[abc.PlayerState] = None
+        self.last_state: PlayerState = PlayerState.null()
 
         self.volume: float = 100
         self._paused: bool = False
@@ -99,8 +98,9 @@ class BasePlayer:
         if self.is_paused():
             return self.last_state.position
 
-        delta = datetime.datetime.now(datetime.timezone.utc) - self.last_state.time
-        return self.last_state.position + delta
+        # delta = datetime.datetime.now(datetime.timezone.utc) - self.last_state.time
+        # return self.last_state.position + delta
+        return self.last_state.position
 
     def is_connected(self) -> bool:
         """Indicates whether the player is connected to voice."""
@@ -114,7 +114,7 @@ class BasePlayer:
         """Indicates wether the currently playing track is paused."""
         return self._paused
 
-    async def update_state(self, state: abc.PlayerUpdate) -> None:
+    async def update_state(self, state: PlayerUpdate) -> None:
         if not state:
             return
 
@@ -171,8 +171,6 @@ class BasePlayer:
         else:
             return
 
-        self._source = source
-
         payload = {
             "op": "play",
             "guildId": str(self.guild.id),
@@ -186,6 +184,8 @@ class BasePlayer:
         await self.node._websocket.send(payload)
 
         logger.debug(f"Started playing track:: {source} ({self.voice_state.channel_id})")
+
+        self._source = source
         return source
 
     async def stop(self) -> None:
@@ -265,8 +265,10 @@ class BasePlayer:
 
 
 class Player(BasePlayer):
-    async def search_tracks(self, query: str, member: hikari.Snowflake) -> t.Optional[
-        t.Union[SearchableTrack, Playlist]]:
+    async def search_tracks(self,
+                            query: str,
+                            member: hikari.Snowflake,
+                            ) -> t.Optional[t.Union[SearchableTrack, Playlist]]:
         result = yarl.URL(query)
         if not result.host:
             data = await YouTubeTrack.search(query, member, self.node, return_first=True)

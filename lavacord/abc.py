@@ -51,8 +51,6 @@ __all__ = (
     "Searchable",
     "Playlist",
     "Track",
-    "PlayerUpdate",
-    "PlayerState",
 )
 
 ST = TypeVar("ST", bound="Searchable")
@@ -62,7 +60,6 @@ class Track(BaseModel, abc.ABC):
     """A Lavalink track object."""
 
     id: str = Field(alias="track")
-
     title: str
     identifier: Optional[str] = Field(repr=False)
     uri: Optional[str] = Field(repr=False)
@@ -81,7 +78,7 @@ class Track(BaseModel, abc.ABC):
 
     @validator("length", pre=True)
     def parse_length(cls, value):
-        return timedelta(microseconds=value)
+        return timedelta(milliseconds=value)
 
     def __str__(self):
         return f"[{self.title} - {self.author}]({self.uri}) \n" \
@@ -175,29 +172,16 @@ class Playlist(BaseModel):
     tracks: List[Track]
     requester: hikari.Snowflake
 
-    @overload
-    @classmethod
-    async def search(
-            cls: Type[ST],
-            query: str,
-            requester: hikari.Snowflake,
-            node: Node = ...,
-    ) -> Playlist:
-        ...
+    thumbnail: str = None
 
     @classmethod
     async def search(
             cls: Type[ST],
             query: str,
             requester: hikari.Snowflake,
-            node: Node = None,
+            node: Node,
     ) -> Playlist:
         raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def thumbnail(self):
-        """Playlist thumbnail"""
 
     @property
     def embed(self) -> hikari.Embed:
@@ -208,22 +192,3 @@ class Playlist(BaseModel):
         emb.add_field(name='Duration', value=str(sum([track.length for track in self.tracks])))
         emb.set_author(icon=self._icon, name='Playlist Added to Queue')
         return emb
-
-
-class PlayerState(BaseModel):
-    time: datetime
-    position: timedelta
-    connected: bool
-
-    @validator("time", pre=True)
-    def parse_time(cls, value):
-        return datetime.fromtimestamp(value, tz=timezone.utc)
-
-    @validator("position", pre=True)
-    def parse_position(cls, value):
-        return timedelta(microseconds=value)
-
-
-class PlayerUpdate(BaseModel):
-    guild_id: hikari.Snowflake = Field(alias="guildId")
-    state: PlayerState

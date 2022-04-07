@@ -24,11 +24,13 @@ SOFTWARE.
 
 from __future__ import annotations
 
-import datetime
 import typing as t
 
+import attrs
 import hikari
-from pydantic import BaseModel, Field, validator
+from hikari.events.base_events import Event
+
+hikari.GuildChannelDeleteEvent
 
 from .abc import Track
 from .enums import ErrorSeverity
@@ -40,113 +42,91 @@ if t.TYPE_CHECKING:
 __all__ = ("NodeReady",
            "TrackStartEvent",
            "TrackEndEvent",
-           "ErrorEvent",
            "TrackExceptionEvent",
            "TrackStuckEvent",
-           "PlayerUpdateEvent",
            "WebSocketClosedEvent")
 
 BP = t.TypeVar("BP", bound=BasePlayer)
 
 
-class NodeReady(BaseModel, hikari.Event):
-    node: Node
+@attrs.define(kw_only=True, weakref_slot=False)
+class NodeReady(Event):
+    node: Node = attrs.field()
 
     @property
     def app(self) -> hikari.traits.RESTAware:
         return self.node.bot
 
 
-class TrackStartEvent(BaseModel, hikari.Event):
+@attrs.define(kw_only=True, weakref_slot=False)
+class BaseTrackEvent(Event):
+    track: str = attrs.field()
+    """The base64 track identifier"""
+
+    player: BP = attrs.field()
+    """The player in which the track is located"""
+
+    @property
+    def app(self) -> hikari.traits.RESTAware:
+        return self.player.node.bot
+
+    async def build_track(self) -> Track:
+        return await self.player.node.build_track(Track, self.track)
+
+
+@attrs.define(kw_only=True, weakref_slot=False)
+class TrackStartEvent(BaseTrackEvent):
     """
     Event on track start.
     """
-    track: Track
-    guild_id: hikari.Snowflake = Field(alias="guildId")
-    player: BP
-
-    @property
-    def app(self) -> hikari.traits.RESTAware:
-        return self.player.node.bot
 
 
-class TrackEndEvent(BaseModel, hikari.Event):
+@attrs.define(kw_only=True, weakref_slot=False)
+class TrackEndEvent(BaseTrackEvent):
     """
     Event on track end.
     """
-    track: Track
-    guild_id: hikari.Snowflake = Field(alias="guildId")
-    reason: str
-    player: BP
-
-    @property
-    def app(self) -> hikari.traits.RESTAware:
-        return self.player.node.bot
+    reason: str = attrs.field()
 
 
-class TrackExceptionEvent(BaseModel, hikari.Event):
+@attrs.define(kw_only=True, weakref_slot=False)
+class TrackExceptionEvent(BaseTrackEvent):
     """
     Event on track exception.
     """
-    track: Track
-    guild_id: hikari.Snowflake = Field(alias="guildId")
-    exception: str
-    message: str
-    severity: ErrorSeverity
-    cause: str
-    player: BP
 
-    @property
-    def app(self) -> hikari.traits.RESTAware:
-        return self.player.node.bot
+    exception: Exception = attrs.field()
+    severity: ErrorSeverity = attrs.field(converter=ErrorSeverity)
+    message: str = attrs.field()
 
 
-class TrackStuckEvent(BaseModel, hikari.Event):
+@attrs.define(kw_only=True, weakref_slot=False)
+class TrackStuckEvent(BaseTrackEvent):
     """
     Event on track stuck.
     """
-    track: Track
-    guild_id: hikari.Snowflake = Field(alias="guildId")
-    thresholdMs: str
-    player: BP
+    thresholdMs: str = attrs.field()
 
     @property
-    def app(self) -> hikari.traits.RESTAware:
-        return self.player.node.bot
+    def threshold(self):
+        return self.thresholdMs
 
 
-class WebSocketClosedEvent(BaseModel, hikari.Event):
+@attrs.define(kw_only=True, weakref_slot=False)
+class WebSocketClosedEvent(hikari.Event):
     """
     Event on websocket closed.
     """
-    app: hikari.RESTAware
-    track: Track
-    guild_id: hikari.Snowflake
-    code: int
-    reason: str
-    by_remote: bool = Field(alias="byRemote")
+    guildId: hikari.Snowflake = attrs.field(converter=hikari.Snowflake)
+    app: hikari.RESTAware = attrs.field()
+    code: int = attrs.field()
+    reason: str = attrs.field()
+    byRemote: bool = attrs.field()
 
+    @property
+    def guild_id(self):
+        return self.guildId
 
-class PlayerUpdateEvent(BaseModel, hikari.Event):
-    """
-    Event on player update.
-    """
-    app: hikari.RESTAware
-    track: Track
-    guild_id: hikari.Snowflake
-    time: datetime.datetime
-    position: t.Optional[int]
-    connected: bool
-
-    @validator("time", pre=True)
-    def parse_position(cls, value):
-        return datetime.datetime.fromtimestamp(value)
-
-
-class ErrorEvent(BaseModel, hikari.Event):
-    """
-    Event on error.
-    """
-    app: hikari.RESTAware
-    guild_id: hikari.Snowflake
-    exception: Exception
+    @property
+    def by_remote(self):
+        return self.byRemote

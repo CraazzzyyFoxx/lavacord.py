@@ -26,17 +26,16 @@ SOFTWARE.
 from __future__ import annotations
 
 import typing as t
+from datetime import datetime, timezone, timedelta
 
 import hikari
-
-if t.TYPE_CHECKING:
-    from .pool import Node
-
 
 __all__ = (
     "Penalty",
     "Stats",
-    "ConnectionInfo"
+    "ConnectionInfo",
+    "PlayerState",
+    "PlayerUpdate"
 )
 
 
@@ -58,7 +57,34 @@ class ConnectionInfo:
         self.channel_id = channel_id
 
 
+class PlayerState:
+    __slots__ = ("time", "position", "connected")
+
+    def __init__(self, data: dict):
+        self.time: datetime = datetime.fromtimestamp(data.get("time"), tz=timezone.utc)
+        self.position: timedelta = timedelta(milliseconds=data.get("position"))
+        self.connected: bool = data.get("connected")
+
+    @classmethod
+    def null(cls):
+        self = cls.__new__(cls)
+        self.time = datetime.fromtimestamp(0, tz=timezone.utc)
+        self.position = timedelta(seconds=0)
+        self.connected = False
+        return self
+
+
+class PlayerUpdate:
+    __slots__ = ("guild_id", "state")
+
+    def __init__(self, data: dict):
+        self.guild_id: hikari.Snowflake = data.get("guildId")
+        self.state = PlayerState(data)
+
+
 class Penalty:
+    __slots__ = ("player_penalty", "cpu_penalty", "null_frame_penalty", "deficit_frame_penalty", "total")
+
     def __init__(self, stats: Stats):
         self.player_penalty: int = stats.playing_players
         self.cpu_penalty: float = 1.05 ** (100 * stats.system_load) * 10 - 10
@@ -67,7 +93,7 @@ class Penalty:
 
         if stats.frames_nulled != -1:
             self.null_frame_penalty = (
-                1.03 ** (500 * (stats.frames_nulled / 3000))
+                                              1.03 ** (500 * (stats.frames_nulled / 3000))
             ) * 300 - 300
             self.null_frame_penalty *= 2
 
@@ -85,9 +111,23 @@ class Penalty:
 
 
 class Stats:
-    def __init__(self, node: Node, data: t.Dict[str, t.Any]):
-        self._node: Node = node
+    __slots__ = ("uptime",
+                 "players",
+                 "playing_players",
+                 "memory_free",
+                 "memory_used",
+                 "memory_allocated",
+                 "memory_reservable",
+                 "cpu_cores",
+                 "system_load",
+                 "lavalink_load",
+                 "frames_sent",
+                 "frames_nulled",
+                 "frames_deficit",
+                 "penalty",
+                 )
 
+    def __init__(self, data: t.Dict[str, t.Any]):
         self.uptime: int = data["uptime"]
 
         self.players: int = data["players"]

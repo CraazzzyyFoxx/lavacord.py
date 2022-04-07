@@ -61,3 +61,4 @@ class Icons(str, Enum):
     youtube = "https://cdn.discordapp.com/emojis/908292349170446336.png"
     youtubemusic = "https://cdn.discordapp.com/emojis/908292237786497034.png"
     soundcloud = "https://cdn.discordapp.com/emojis/954864037596917850.png"
+    yandexmusic = "https://cdn.discordapp.com/emojis/961644103240646686.png"

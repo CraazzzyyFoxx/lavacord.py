@@ -34,6 +34,7 @@ from tekore.model import FullAlbum, FullPlaylist, SimpleTrack, PlaylistTrack
 
 from .abc import Playlist, Track
 from .enums import Icons
+from .utils import _from_json
 
 if t.TYPE_CHECKING:
     from .pool import Node
@@ -59,14 +60,13 @@ class SearchableTrack(Track):
     _search_type: t.ClassVar[str]
     _icon: t.ClassVar[Icons]
     _color: t.ClassVar[hikari.Color]
-    _spotify = False
 
     @classmethod
     async def search(
             cls: t.Type[ST],
             query: str,
             requester: hikari.Snowflake,
-            node: Node = None,
+            node: Node,
             *,
             return_first: bool = True
     ) -> t.List[Track]:
@@ -95,7 +95,6 @@ class YouTubeTrack(SearchableTrack):
     _search_type = "ytsearch"
     _color = hikari.Color.from_hex_code("#ff0101")
     _icon = Icons.youtube
-    _spotify = False
 
     @property
     def thumbnail(self) -> str:
@@ -109,7 +108,6 @@ class YouTubeMusicTrack(SearchableTrack):
     _search_type = "ytmsearch"
     _color = hikari.Color.from_hex_code("#ff0101")
     _icon = Icons.youtubemusic
-    _spotify = False
 
     @property
     def thumbnail(self) -> str:
@@ -122,7 +120,6 @@ class TwitchTrack(SearchableTrack):
     _search_type = ""
     _color = hikari.Color.from_hex_code("#9448ff")
     _icon = Icons.twitch
-    _spotify = False
 
 
 class SoundCloudTrack(SearchableTrack):
@@ -131,16 +128,18 @@ class SoundCloudTrack(SearchableTrack):
     _search_type = "scsearch"
     _color = hikari.Color.from_hex_code("#f08f16")
     _icon = Icons.soundcloud
-    _spotify = False
 
 
 class SpotifyTrack(YouTubeMusicTrack):
     """A track retrieved via YouTubeMusic with a Spotify URL/ID."""
     _color = hikari.Color.from_hex_code("#1ed760")
     _icon = Icons.spotify
-    _spotify = True
 
-    thumbnail: str
+    thumbnail_: str
+
+    @property
+    def thumbnail(self) -> str:
+        return self.thumbnail_
 
     @property
     def uri(self):
@@ -151,7 +150,7 @@ class SpotifyTrack(YouTubeMusicTrack):
             cls: t.Type[ST],
             query: str,
             requester: hikari.Snowflake,
-            node: Node = None,
+            node: Node,
             *,
             return_first: bool = True
     ) -> t.List[Track]:
@@ -160,21 +159,59 @@ class SpotifyTrack(YouTubeMusicTrack):
         return await node.get_tracks(cls,
                                      query=f'{track_.name} {", ".join(artists)}',
                                      requester=requester,
-                                     payload={"identifier": track_.id, "_thumbnail": track_.album.images[0].url},
+                                     payload={"identifier": track_.id, "thumbnail_": track_.album.images[0].url},
+                                     return_first=return_first)
+
+
+class YandexMusicTrack(YouTubeMusicTrack):
+    _color = hikari.Color.from_hex_code("#f3d92f")
+    _icon = Icons.yandexmusic
+
+    thumbnail_: str
+
+    @property
+    def thumbnail(self) -> str:
+        return self.thumbnail_
+
+    @classmethod
+    async def search(
+            cls: t.Type[ST],
+            query: str,
+            requester: hikari.Snowflake,
+            node: Node,
+            *,
+            return_first: bool = True
+    ) -> t.List[Track]:
+        async with node._websocket.session.get(f"https://music.yandex.ru/handlers/track.jsx?track={query}") as resp:
+            data = await resp.json(loads=_from_json)
+        track_data = data["track"]
+        version = track_data.get("version")
+        query = f"{track_data['title']}"
+        if version:
+            query += f"({version})"
+
+        artists = track_data.get("artists")
+        artists = [artist.get("name") for artist in artists]
+        query += f' {", ".join(artists)}'
+        thumb: str = track_data.get("coverUri")
+        thumb.replace()
+        return await node.get_tracks(cls,
+                                     query=query,
+                                     requester=requester,
+                                     payload={"thumbnail_": thumb},
                                      return_first=return_first)
 
 
 class YouTubePlaylist(Playlist):
     _icon = Icons.youtube
     _color = hikari.Color.from_hex_code("#ff0101")
-    _spotify = False
 
     @classmethod
     async def search(
             cls: t.Type[PT],
             query: str,
             requester: hikari.Snowflake,
-            node: Node = ...,
+            node: Node,
     ) -> YouTubePlaylist:
         return await node.get_playlist(cls, YouTubeTrack, query, requester)
 
@@ -182,14 +219,13 @@ class YouTubePlaylist(Playlist):
 class YouTubeMusicPlaylist(Playlist):
     _icon = Icons.youtubemusic
     _color = hikari.Color.from_hex_code("#ff0101")
-    _spotify = False
 
     @classmethod
     async def search(
             cls: t.Type[PT],
             query: str,
             requester: hikari.Snowflake,
-            node: Node = ...,
+            node: Node,
     ) -> YouTubeMusicPlaylist:
         return await node.get_playlist(cls, YouTubeMusicTrack, query, requester)
 
@@ -197,18 +233,15 @@ class YouTubeMusicPlaylist(Playlist):
 class SpotifyAlbum(Playlist):
     _icon = Icons.spotify
     _color = hikari.Color.from_hex_code("#1ed760")
-    _spotify = True
 
-    name: str
     uri: str
-    thumbnail: str
 
     @classmethod
     async def search(
             cls: t.Type[PT],
             query: str,
             requester: hikari.Snowflake,
-            node: Node = None,
+            node: Node,
     ) -> SpotifyAlbum:
         playlist: FullAlbum = await node.spotify.album(query)
         tracks = []
@@ -220,7 +253,7 @@ class SpotifyAlbum(Playlist):
                                                    requester=requester,
                                                    return_first=True,
                                                    payload={"identifier": spotify_track.id,
-                                                            "_thumbnail": spotify_track.preview_url}
+                                                            "thumbnail": spotify_track.preview_url}
                                                    )
             if lavalink_track is None:
                 return
@@ -244,18 +277,15 @@ class SpotifyAlbum(Playlist):
 class SpotifyPlaylist(Playlist):
     _icon = Icons.spotify
     _color = hikari.Color.from_hex_code("#1ed760")
-    _spotify = False
 
-    name: str
     uri: str
-    thumbnail: str
 
     @classmethod
     async def search(
             cls: t.Type[PT],
             query: str,
             requester: hikari.Snowflake,
-            node: Node = None,
+            node: Node,
     ) -> SpotifyPlaylist:
         playlist: FullPlaylist = await node.spotify.playlist(query)
         tracks = []
@@ -267,7 +297,7 @@ class SpotifyPlaylist(Playlist):
                                                    requester=requester,
                                                    return_first=True,
                                                    payload={"identifier": spotify_track.track.id,
-                                                            "_thumbnail": spotify_track.track.album.images[0].url}
+                                                            "thumbnail": spotify_track.track.album.images[0].url}
                                                    )
             if lavalink_track is None:
                 return
