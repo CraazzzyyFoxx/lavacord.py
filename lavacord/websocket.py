@@ -23,7 +23,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-
 from __future__ import annotations
 
 import asyncio
@@ -55,33 +54,22 @@ class Websocket:
         self.listener: Optional[asyncio.Task] = None
         self.session: Optional[aiohttp.ClientSession] = None
 
-        self.host: str = f'{"https://" if self.node._https else "http://"}{self.node.host}:{self.node.port}'
-        self.ws_host: str = f"ws://{self.node.host}:{self.node.port}"
-
-    @property
-    def headers(self) -> Dict[str, Any]:
-        return {
-            "Authorization": self.node.password,
-            "User-Id": str(self.node.bot.get_me().id),
-            "Client-Name": "Lavacord",
-            'Resume-Key': self.node.resume_key
-        }
-
     def is_connected(self) -> bool:
         return self.websocket is not None and not self.websocket.closed
 
     async def connect(self) -> None:
-        self.session = aiohttp.ClientSession(headers=self.headers)
+        self.session = aiohttp.ClientSession(headers=self.node.creditnails.headers)
         if self.is_connected():
             assert isinstance(self.websocket, aiohttp.ClientWebSocketResponse)
             await self.websocket.close(
                 code=1006, message=b"Lavacord: Attempting reconnection."
             )
 
-        host = self.host if self.node._https else self.ws_host
         try:
             self.websocket = await self.session.ws_connect(
-                host, headers=self.headers, heartbeat=self.node._heartbeat
+                self.node.creditnails.websocket_host,
+                headers=self.node.creditnails.headers,
+                heartbeat=self.node._heartbeat
             )
         except Exception as error:
             if (
@@ -103,7 +91,7 @@ class Websocket:
 
             resume = {
                 "op": "configureResuming",
-                "key": f"{self.node.resume_key}",
+                "key": f"{self.node.creditnails.resume_key}",
                 "timeout": 60
             }
             await self.send(resume)
@@ -163,25 +151,20 @@ class Websocket:
         if name == "WebSocketClosedEvent":
             event = WebSocketClosedEvent(self.node.bot, data)
         else:
-            track = data.pop('track')
             if name == "TrackEndEvent":
                 player._source = None
-                event = TrackEndEvent(track=track,
-                                      player=player,
+                event = TrackEndEvent(player=player,
                                       **data)
 
             elif name == "TrackStartEvent":
-                event = TrackStartEvent(track=track,
-                                        player=player,
+                event = TrackStartEvent(player=player,
                                         **data)
 
             elif name == "TrackExceptionEvent":
-                event = TrackExceptionEvent(track=track,
-                                            player=player,
+                event = TrackExceptionEvent(player=player,
                                             **data)
             else:
-                event = TrackStuckEvent(track=track,
-                                        player=player,
+                event = TrackStuckEvent(player=player,
                                         **data)
 
         return event

@@ -19,6 +19,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 import json
+import os
 
 from typing import Any
 
@@ -44,3 +45,40 @@ else:
 
 
     _from_json = json.loads
+
+
+class Creditnails:
+    def __init__(self,
+                 host: str,
+                 password: str,
+                 user_id: int,
+                 port: int = 2333,
+                 is_https: bool = False,
+                 resume_key: str = str(os.urandom(8).hex())):
+        self._host = host
+        self._password = password
+        self._port = port
+        self._is_https = is_https
+
+        self._headers = {
+            "Authorization": password,
+            "User-Id": str(user_id),
+            "Client-Name": "Lavacord",
+            'Resume-Key': resume_key
+        }
+
+    @property
+    def password(self) -> str:
+        return self._password
+
+    @property
+    def host(self) -> str:
+        return f'{"https://" if self._is_https else "http://"}{self.host}:{self._port}'
+
+    @property
+    def websocket_host(self) -> str:
+        return self.host if self._is_https else f"ws://{self._host}:{self._port}"
+
+    @property
+    def headers(self) -> dict:
+        return self._headers

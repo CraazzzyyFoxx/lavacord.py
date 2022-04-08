@@ -48,7 +48,7 @@ from .enums import *
 from .exceptions import *
 from .player import BasePlayer
 from .stats import Stats
-from .utils import _from_json
+from .utils import _from_json, Creditnails
 from .websocket import Websocket
 
 __all__ = (
@@ -89,14 +89,15 @@ class Node:
             resume_key: Optional[str] = None,
     ):
         self.bot = bot
-        self._host: str = host
-        self._port: int = port
-        self._password: str = password
-        self._https: bool = https
+        self.creditnails = Creditnails(host,
+                                       password,
+                                       bot.get_me().id,
+                                       port=port,
+                                       is_https=https,
+                                       resume_key=resume_key)
         self._heartbeat: float = heartbeat
         self._region: Optional[hikari.VoiceRegion] = region
         self._identifier: str = identifier or str(os.urandom(8).hex())
-        self.resume_key = resume_key or str(os.urandom(8).hex())
 
         self._players: Dict[hikari.Snowflake, BasePlayer] = {}
         self._websocket: Optional[Websocket] = None
@@ -109,20 +110,6 @@ class Node:
 
     def __repr__(self) -> str:
         return f"<Lavacord Node: <{self.identifier}>, Region: <{self.region}>, Players: <{len(self._players)}>>"
-
-    @property
-    def host(self) -> str:
-        """The host this node is connected to."""
-        return self._host
-
-    @property
-    def port(self) -> int:
-        """The port this node is connected to."""
-        return self._port
-
-    @property
-    def password(self) -> str:
-        return self._password
 
     @property
     def region(self) -> Optional[hikari.VoiceRegion]:
@@ -175,8 +162,8 @@ class Node:
                         params: dict
                         ) -> Tuple[Dict[str, Any], aiohttp.ClientResponse]:
 
-        headers = {"Authorization": self._password}
-        url = f"{self._websocket.host}/{endpoint}"
+        headers = {"Authorization": self.creditnails.password}
+        url = f"{self.creditnails.host}/{endpoint}"
 
         async with self._websocket.session.get(url, headers=headers, params=params) as resp:
             data = await resp.json(loads=_from_json)
