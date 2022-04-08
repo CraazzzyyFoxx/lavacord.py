@@ -1,7 +1,7 @@
 """
 The MIT License (MIT)
 
-Copyright (c) 2022 CraazzzyyFoxx
+Copyright (c) 2022 CrazzzyyFoxx
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,6 @@ import hikari
 from .exceptions import NoMatchingNode
 from .player import BasePlayer
 from .pool import Node, NodePool
-from .stats import ConnectionInfo
 
 __all__ = (
     "LavalinkClient",
@@ -44,21 +43,10 @@ class LavalinkClient:
     Represents a Lavalink client used to manage nodes and connections.
     """
 
-    def __init__(
-            self,
-            bot: hikari.GatewayBot,
-            *,
-            loop: t.Optional[asyncio.AbstractEventLoop] = None
-
-    ):
-        if not loop:
-            self._loop = asyncio.get_event_loop()
-        else:
-            self._loop = loop
-
+    def __init__(self, bot: hikari.GatewayBot):
         self.bot = bot
-        self.bot.subscribe(hikari.VoiceStateUpdateEvent, self.raw_voice_state_update)
-        self.bot.subscribe(hikari.VoiceServerUpdateEvent, self.raw_voice_server_update)
+        self.bot.subscribe(hikari.VoiceStateUpdateEvent, self._raw_voice_state_update)
+        self.bot.subscribe(hikari.VoiceServerUpdateEvent, self._raw_voice_server_update)
 
     @staticmethod
     async def create_player(voice_state: hikari.VoiceState, cls=BasePlayer) -> BP:
@@ -75,7 +63,7 @@ class LavalinkClient:
 
         return None
 
-    async def raw_voice_state_update(self, event: hikari.VoiceStateUpdateEvent) -> None:
+    async def _raw_voice_state_update(self, event: hikari.VoiceStateUpdateEvent) -> None:
         """
         A voice state update has been received from Discord.
         """
@@ -86,15 +74,12 @@ class LavalinkClient:
         player = await self.get_player(guild_id)
 
         if player:
-            player._voice_state = ConnectionInfo(guild_id=guild_id, channel_id=event.state.channel_id)
+            player.voice_channel_id = event.state.channel_id
+            player.session_id = event.state.session_id
 
-    async def raw_voice_server_update(self, event: hikari.VoiceServerUpdateEvent) -> None:
+    async def _raw_voice_server_update(self, event: hikari.VoiceServerUpdateEvent) -> None:
         """
         A voice server update has been received from Discord.
-        
-        Parameters
-        ---------
-        event: hikari.VoiceServerUpdateEvent
         """
         guild_id = event.guild_id
 
@@ -104,7 +89,7 @@ class LavalinkClient:
         await player.node._websocket.send({
             "op": "voiceUpdate",
             "guildId": str(guild_id),
-            "sessionId": player.voice_state.session_id,
+            "sessionId": player.session_id,
             "event": {
                 "token": event.token,
                 "guild_id": str(guild_id),

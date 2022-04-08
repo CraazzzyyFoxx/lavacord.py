@@ -28,35 +28,24 @@ from __future__ import annotations
 import typing as t
 from datetime import datetime, timezone, timedelta
 
-import hikari
 
 __all__ = (
     "Penalty",
     "Stats",
-    "ConnectionInfo",
     "PlayerState",
-    "PlayerUpdate"
 )
-
-
-class ConnectionInfo:
-    """
-    A Connection info just use to save the connection information.
-    """
-
-    __slots__ = ("guild_id", "channel_id")
-
-    def __init__(self, guild_id: hikari.Snowflake, channel_id: hikari.Snowflake):
-        self.guild_id = guild_id
-        self.channel_id = channel_id
 
 
 class PlayerState:
     __slots__ = ("time", "position", "connected")
 
     def __init__(self, data: dict):
-        self.time: datetime = datetime.fromtimestamp(data.get("time"), tz=timezone.utc)
-        self.position: timedelta = timedelta(milliseconds=data.get("position"))
+        self.time: datetime = datetime.fromtimestamp(data.get("time") / 1000, tz=timezone.utc)
+        position = data.get("position")
+        if position:
+            self.position: timedelta = timedelta(seconds=round(data.get("position") / 1000, 0))
+        else:
+            self.position = timedelta(seconds=0)
         self.connected: bool = data.get("connected")
 
     @classmethod
@@ -66,14 +55,6 @@ class PlayerState:
         self.position = timedelta(seconds=0)
         self.connected = False
         return self
-
-
-class PlayerUpdate:
-    __slots__ = ("guild_id", "state")
-
-    def __init__(self, data: dict):
-        self.guild_id: hikari.Snowflake = data.get("guildId")
-        self.state = PlayerState(data.get("state"))
 
 
 class Penalty:
@@ -86,15 +67,11 @@ class Penalty:
         self.deficit_frame_penalty: float = 0
 
         if stats.frames_nulled != -1:
-            self.null_frame_penalty = (
-                                              1.03 ** (500 * (stats.frames_nulled / 3000))
-            ) * 300 - 300
+            self.null_frame_penalty = (1.03 ** (500 * (stats.frames_nulled / 3000))) * 300 - 300
             self.null_frame_penalty *= 2
 
         if stats.frames_deficit != -1:
-            self.deficit_frame_penalty = (
-                1.03 ** (500 * (stats.frames_deficit / 3000))
-            ) * 600 - 600
+            self.deficit_frame_penalty = (1.03 ** (500 * (stats.frames_deficit / 3000))) * 600 - 600
 
         self.total: float = (
             self.player_penalty

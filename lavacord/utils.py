@@ -51,21 +51,14 @@ class Credentials:
     def __init__(self,
                  host: str,
                  password: str,
-                 user_id: int,
                  port: int = 2333,
                  is_https: bool = False,
-                 resume_key: str = str(os.urandom(8).hex())):
+                 resume_key: str = None):
         self._host = host
         self._password = password
         self._port = port
         self._is_https = is_https
-
-        self._headers = {
-            "Authorization": password,
-            "User-Id": str(user_id),
-            "Client-Name": "Lavacord",
-            'Resume-Key': resume_key
-        }
+        self._resume_key = resume_key or str(os.urandom(8).hex())
 
     @property
     def password(self) -> str:
@@ -73,12 +66,12 @@ class Credentials:
 
     @property
     def host(self) -> str:
-        return f'{"https://" if self._is_https else "http://"}{self.host}:{self._port}'
+        return f'{"https://" if self._is_https else "http://"}{self._host}:{self._port}'
+
+    @property
+    def resume_key(self):
+        return self._resume_key
 
     @property
     def websocket_host(self) -> str:
         return self.host if self._is_https else f"ws://{self._host}:{self._port}"
-
-    @property
-    def headers(self) -> dict:
-        return self._headers

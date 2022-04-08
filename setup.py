@@ -8,13 +8,13 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 setup(
     name='lavacord.py',
-    version='1.0.4a',
+    version='1.0.4a1',
     description='Its a lavalink nodes manger to make a music bots for discord with python.',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/CraazzzyyFoxx/lavacord.py',
     author='CraazzzyyFoxx',
-    author_email='hazemmeqdad@gmail.com',
+    author_email='38073783+CraazzzyyFoxx@users.noreply.github.com',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

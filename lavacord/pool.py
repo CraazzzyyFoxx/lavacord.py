@@ -89,12 +89,11 @@ class Node:
             resume_key: Optional[str] = None,
     ):
         self.bot = bot
-        self.credentials = Credentials(host,
-                                       password,
-                                       bot.get_me().id,
-                                       port=port,
-                                       is_https=https,
-                                       resume_key=resume_key)
+        self.credentials: Credentials = Credentials(host,
+                                                    password,
+                                                    port=port,
+                                                    is_https=https,
+                                                    resume_key=resume_key)
         self._heartbeat: float = heartbeat
         self._region: Optional[hikari.VoiceRegion] = region
         self._identifier: str = identifier or str(os.urandom(8).hex())
@@ -120,6 +119,10 @@ class Node:
     def identifier(self) -> str:
         """The Nodes unique identifier."""
         return self._identifier
+
+    @property
+    def heartbeat(self):
+        return self._heartbeat
 
     @property
     def players(self) -> Dict[hikari.Snowflake, BasePlayer]:
@@ -315,13 +318,11 @@ class NodePool:
         elif region is not None:
             nodes = [n for n in cls._nodes.values() if n.region is region]
             if not nodes:
-                raise ZeroConnectedNodes(
-                    f"No Nodes for region <{region}> exist on this pool."
-                )
+                raise ZeroConnectedNodes(f"No Nodes for region <{region}> exist on this pool.")
         else:
             nodes = cls._nodes.values()
 
-        return sorted(nodes, key=lambda n: len(n.players))[0]
+        return sorted(nodes, key=lambda n: n.penalty)[0]
 
     @classmethod
     async def get_player(cls, guild_id: hikari.Snowflake) -> Optional[BP]:

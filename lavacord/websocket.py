@@ -34,7 +34,7 @@ import hikari
 
 from .backoff import Backoff
 from .events import *
-from .stats import Stats, PlayerUpdate
+from .stats import Stats, PlayerState
 from .utils import _from_json, _to_json
 
 if TYPE_CHECKING:
@@ -58,7 +58,16 @@ class Websocket:
         return self.websocket is not None and not self.websocket.closed
 
     async def connect(self) -> None:
-        self.session = aiohttp.ClientSession(headers=self.node.credentials.headers)
+        credentials = self.node.credentials
+
+        headers = {
+            "Authorization": credentials.password,
+            "User-Id": str(self.node.bot.get_me().id),
+            "Client-Name": "Lavacord",
+            'Resume-Key': credentials.resume_key
+        }
+
+        self.session = aiohttp.ClientSession(headers=headers)
         if self.is_connected():
             assert isinstance(self.websocket, aiohttp.ClientWebSocketResponse)
             await self.websocket.close(
@@ -68,8 +77,8 @@ class Websocket:
         try:
             self.websocket = await self.session.ws_connect(
                 self.node.credentials.websocket_host,
-                headers=self.node.credentials.headers,
-                heartbeat=self.node._heartbeat
+                headers=headers,
+                heartbeat=self.node.heartbeat
             )
         except Exception as error:
             if (
@@ -144,7 +153,7 @@ class Websocket:
 
         elif op == "playerUpdate":
             logger.debug(f"op: playerUpdate:: {data}")
-            await player.update_state(PlayerUpdate(data))
+            player.last_state = PlayerState(data.get("state"))
 
     def _get_event_payload(self, data: Dict[str, Any], player: BasePlayer) -> hikari.Event:
         name = data.pop('type')
