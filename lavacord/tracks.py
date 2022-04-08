@@ -34,7 +34,6 @@ from tekore.model import FullAlbum, FullPlaylist, SimpleTrack, PlaylistTrack
 
 from .abc import Playlist, Track
 from .enums import Icons
-from .utils import _from_json
 
 if t.TYPE_CHECKING:
     from .pool import Node
@@ -163,43 +162,43 @@ class SpotifyTrack(YouTubeMusicTrack):
                                      return_first=return_first)
 
 
-class YandexMusicTrack(YouTubeMusicTrack):
-    _color = hikari.Color.from_hex_code("#f3d92f")
-    _icon = Icons.yandexmusic
-
-    thumbnail_: str
-
-    @property
-    def thumbnail(self) -> str:
-        return self.thumbnail_
-
-    @classmethod
-    async def search(
-            cls: t.Type[ST],
-            query: str,
-            requester: hikari.Snowflake,
-            node: Node,
-            *,
-            return_first: bool = True
-    ) -> t.List[Track]:
-        async with node._websocket.session.get(f"https://music.yandex.ru/handlers/track.jsx?track={query}") as resp:
-            data = await resp.json(loads=_from_json)
-        track_data = data["track"]
-        version = track_data.get("version")
-        query = f"{track_data['title']}"
-        if version:
-            query += f"({version})"
-
-        artists = track_data.get("artists")
-        artists = [artist.get("name") for artist in artists]
-        query += f' {", ".join(artists)}'
-        thumb: str = track_data.get("coverUri")
-        thumb.replace()
-        return await node.get_tracks(cls,
-                                     query=query,
-                                     requester=requester,
-                                     payload={"thumbnail_": thumb},
-                                     return_first=return_first)
+# class YandexMusicTrack(YouTubeMusicTrack):
+#     _color = hikari.Color.from_hex_code("#f3d92f")
+#     _icon = Icons.yandexmusic
+#
+#     thumbnail_: str
+#
+#     @property
+#     def thumbnail(self) -> str:
+#         return self.thumbnail_
+#
+#     @classmethod
+#     async def search(
+#             cls: t.Type[ST],
+#             query: str,
+#             requester: hikari.Snowflake,
+#             node: Node,
+#             *,
+#             return_first: bool = True
+#     ) -> t.List[Track]:
+#         async with node._websocket.session.get(f"https://music.yandex.ru/handlers/track.jsx?track={query}") as resp:
+#             data = await resp.json(loads=_from_json)
+#         track_data = data["track"]
+#         version = track_data.get("version")
+#         query = f"{track_data['title']}"
+#         if version:
+#             query += f"({version})"
+#
+#         artists = track_data.get("artists")
+#         artists = [artist.get("name") for artist in artists]
+#         query += f' {", ".join(artists)}'
+#         thumb: str = track_data.get("coverUri")
+#         thumb.replace()
+#         return await node.get_tracks(cls,
+#                                      query=query,
+#                                      requester=requester,
+#                                      payload={"thumbnail_": thumb},
+#                                      return_first=return_first)
 
 
 class YouTubePlaylist(Playlist):

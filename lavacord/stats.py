@@ -44,16 +44,10 @@ class ConnectionInfo:
     A Connection info just use to save the connection information.
     """
 
-    __slots__ = ("guild_id", "session_id", "channel_id")
+    __slots__ = ("guild_id", "channel_id")
 
-    def __init__(self,
-                 guild_id: hikari.Snowflake,
-                 channel_id: hikari.Snowflake,
-                 *,
-                 session_id: t.Optional[str] = None
-                 ):
+    def __init__(self, guild_id: hikari.Snowflake, channel_id: hikari.Snowflake):
         self.guild_id = guild_id
-        self.session_id = session_id
         self.channel_id = channel_id
 
 

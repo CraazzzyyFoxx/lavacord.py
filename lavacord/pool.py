@@ -48,7 +48,7 @@ from .enums import *
 from .exceptions import *
 from .player import BasePlayer
 from .stats import Stats
-from .utils import _from_json, Creditnails
+from .utils import _from_json, Credentials
 from .websocket import Websocket
 
 __all__ = (
@@ -89,7 +89,7 @@ class Node:
             resume_key: Optional[str] = None,
     ):
         self.bot = bot
-        self.creditnails = Creditnails(host,
+        self.credentials = Credentials(host,
                                        password,
                                        bot.get_me().id,
                                        port=port,
@@ -162,8 +162,8 @@ class Node:
                         params: dict
                         ) -> Tuple[Dict[str, Any], aiohttp.ClientResponse]:
 
-        headers = {"Authorization": self.creditnails.password}
-        url = f"{self.creditnails.host}/{endpoint}"
+        headers = {"Authorization": self.credentials.password}
+        url = f"{self.credentials.host}/{endpoint}"
 
         async with self._websocket.session.get(url, headers=headers, params=params) as resp:
             data = await resp.json(loads=_from_json)
@@ -222,8 +222,8 @@ class Node:
         if load_type is not LoadType.playlist_loaded:
             raise LavalinkException("Track failed to load.")
 
-        return cls(tracks=[cls_track(track=track['track'], **track['info'], requester=requester)
-                           for track in data.get("tracks")],
+        return cls(tracks=[cls_track(track=track['track'], **track['info'], requester=requester) for track in
+                           data.get("tracks")],
                    requester=requester,
                    **(data.get("playlistInfo") | payload))
 

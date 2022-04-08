@@ -56,7 +56,7 @@ __all__ = (
 ST = TypeVar("ST", bound="Searchable")
 
 
-class Track(BaseModel, abc.ABC):
+class Track(BaseModel):
     """A Lavalink track object."""
 
     id: str = Field(alias="track")
@@ -86,12 +86,13 @@ class Track(BaseModel, abc.ABC):
                f"Requester: <@{self.requester}>"
 
     @property
-    @abc.abstractmethod
     def thumbnail(self):
         """Track thumbnail"""
+        return None
 
     @property
     def duration(self) -> timedelta:
+        """Alias to length"""
         return self.length
 
 
@@ -161,7 +162,7 @@ class Searchable(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
-class Playlist(BaseModel):
+class Playlist(BaseModel, abc.ABC):
     """An ABC that defines the basic structure of a lavalink playlist resource"""
 
     _icon: ClassVar[Icons]
@@ -175,6 +176,7 @@ class Playlist(BaseModel):
     thumbnail: str = None
 
     @classmethod
+    @abc.abstractmethod
     async def search(
             cls: Type[ST],
             query: str,

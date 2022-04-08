@@ -30,8 +30,6 @@ import attrs
 import hikari
 from hikari.events.base_events import Event
 
-hikari.GuildChannelDeleteEvent
-
 from .abc import Track
 from .enums import ErrorSeverity
 from .player import BasePlayer

@@ -58,7 +58,7 @@ class Websocket:
         return self.websocket is not None and not self.websocket.closed
 
     async def connect(self) -> None:
-        self.session = aiohttp.ClientSession(headers=self.node.creditnails.headers)
+        self.session = aiohttp.ClientSession(headers=self.node.credentials.headers)
         if self.is_connected():
             assert isinstance(self.websocket, aiohttp.ClientWebSocketResponse)
             await self.websocket.close(
@@ -67,8 +67,8 @@ class Websocket:
 
         try:
             self.websocket = await self.session.ws_connect(
-                self.node.creditnails.websocket_host,
-                headers=self.node.creditnails.headers,
+                self.node.credentials.websocket_host,
+                headers=self.node.credentials.headers,
                 heartbeat=self.node._heartbeat
             )
         except Exception as error:
@@ -91,7 +91,7 @@ class Websocket:
 
             resume = {
                 "op": "configureResuming",
-                "key": f"{self.node.creditnails.resume_key}",
+                "key": f"{self.node.credentials.resume_key}",
                 "timeout": 60
             }
             await self.send(resume)

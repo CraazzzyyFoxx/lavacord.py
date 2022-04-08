@@ -47,7 +47,7 @@ else:
     _from_json = json.loads
 
 
-class Creditnails:
+class Credentials:
     def __init__(self,
                  host: str,
                  password: str,

@@ -72,19 +72,6 @@ class BasePlayer:
         self.queue = Queue()
 
     @property
-    def voice_state(self) -> ConnectionInfo:
-        return self._voice_state
-
-    @voice_state.setter
-    def voice_state(self, voice_state):
-        self._voice_state = voice_state
-
-    @property
-    def guild(self) -> hikari.Guild:
-        """The :class:`hikari.Guild` this :class:`Player` is in."""
-        return self.node.bot.cache.get_guild(self._voice_state.guild_id)
-
-    @property
     def source(self) -> t.Optional[abc.Track]:
         """The currently playing audio source."""
         return self._source
@@ -98,9 +85,8 @@ class BasePlayer:
         if self.is_paused():
             return self.last_state.position
 
-        # delta = datetime.datetime.now(datetime.timezone.utc) - self.last_state.time
-        # return self.last_state.position + delta
-        return self.last_state.position
+        delta = datetime.datetime.now(datetime.timezone.utc) - self.last_state.time
+        return self.last_state.position + delta
 
     def is_connected(self) -> bool:
         """Indicates whether the player is connected to voice."""
@@ -121,17 +107,17 @@ class BasePlayer:
         self.last_state = state.state
 
     async def connect(self, *, self_deaf: bool = True) -> None:
-        await self.node.bot.update_voice_state(self.voice_state.guild_id,
-                                               self.voice_state.channel_id,
+        await self.node.bot.update_voice_state(self._voice_state.guild_id,
+                                               self._voice_state.channel_id,
                                                self_deaf=self_deaf)
         self._connected = True
 
-        logger.info(f"Connected to voice channel:: {self.voice_state.channel_id}")
+        logger.info(f"Connected to voice channel:: {self._voice_state.channel_id}")
 
     async def disconnect(self) -> None:
-        logger.info(f"Disconnected from voice channel:: {self.voice_state.channel_id}")
+        logger.info(f"Disconnected from voice channel:: {self._voice_state.channel_id}")
 
-        await self.node.bot.update_voice_state(guild=self.voice_state.guild_id, channel=None)
+        await self.node.bot.update_voice_state(guild=self._voice_state.guild_id, channel=None)
         self._connected = False
 
     async def move_to(self, channel: hikari.GuildVoiceChannel) -> None:
@@ -139,10 +125,10 @@ class BasePlayer:
         Moves the player to a different voice channel.
         Parameters
         -----------
-        channel: :class:`discord.VoiceChannel`
+        channel: :class:`hikari.GuildVoiceChannel`
             The channel to move to. Must be a voice channel.
         """
-        await self.guild.change_voice_state(channel=channel)
+        await self.node.bot.update_voice_state(self._voice_state.guild_id, channel.id)
         logger.info(f"Moving to voice channel:: {channel.id}")
 
     async def play(
@@ -173,7 +159,7 @@ class BasePlayer:
 
         payload = {
             "op": "play",
-            "guildId": str(self.guild.id),
+            "guildId": str(self._voice_state.guild_id),
             "track": source.id,
             "noReplace": not replace,
             "startTime": str(start),
@@ -183,7 +169,7 @@ class BasePlayer:
 
         await self.node._websocket.send(payload)
 
-        logger.debug(f"Started playing track:: {source} ({self.voice_state.channel_id})")
+        logger.debug(f"Started playing track:: {source} ({self._voice_state.channel_id})")
 
         self._source = source
         return source
@@ -193,9 +179,9 @@ class BasePlayer:
         Stop the Player's currently playing song.
         """
         await self.node._websocket.send({
-            "op": "stop", "guildId": str(self.guild.id)}
+            "op": "stop", "guildId": str(self._voice_state.guild_id)}
         )
-        logger.debug(f"Current track stopped:: {str(self.source)} ({self.voice_state.channel_id})")
+        logger.debug(f"Current track stopped:: {str(self.source)} ({self._voice_state.channel_id})")
         self._source = None
 
     async def set_pause(self, pause: bool) -> None:
@@ -207,10 +193,10 @@ class BasePlayer:
             A bool indicating if the player's paused state should be set to True or False.
         """
         await self.node._websocket.send(
-            {"op": "pause", "guildId": str(self.guild.id), "pause": pause}
+            {"op": "pause", "guildId": str(self._voice_state.guild_id), "pause": pause}
         )
         self._paused = pause
-        logger.info(f"Set pause:: {self._paused} ({self.voice_state.channel_id})")
+        logger.info(f"Set pause:: {self._paused} ({self._voice_state.channel_id})")
 
     async def pause(self) -> None:
         """|coro|
@@ -236,9 +222,9 @@ class BasePlayer:
         """
         self.volume = max(min(volume, 1000), 0)
         await self.node._websocket.send(
-            {"op": "volume", "guildId": str(self.guild.id), "volume": self.volume}
+            {"op": "volume", "guildId": str(self._voice_state.guild_id), "volume": self.volume}
         )
-        logger.debug(f"Set volume:: {self.volume} ({self.voice_state.channel_id})")
+        logger.debug(f"Set volume:: {self.volume} ({self._voice_state.channel_id})")
 
     async def seek(self, position: int = 0) -> None:
         """|coro|
@@ -249,7 +235,7 @@ class BasePlayer:
             The position as an int in milliseconds to seek to. Could be None to seek to beginning.
         """
         await self.node._websocket.send(
-            dict(op="seek", guildId=str(self.guild.id), position=position)
+            dict(op="seek", guildId=str(self._voice_state.guild_id), position=position)
         )
 
     async def destroy(self):
@@ -257,10 +243,10 @@ class BasePlayer:
                Destroy the player..
                 """
         await self.node._websocket.send(
-            {"op": "destroy", "guildId": str(self.guild.id)}
+            {"op": "destroy", "guildId": str(self._voice_state.guild_id)}
         )
-        logger.debug(f'Player destroyed:: {self.voice_state.channel_id}')
-        self.node._players.pop(self.voice_state.guild_id)
+        logger.debug(f'Player destroyed:: {self._voice_state.channel_id}')
+        self.node._players.pop(self._voice_state.guild_id)
         await self.disconnect()
 
 

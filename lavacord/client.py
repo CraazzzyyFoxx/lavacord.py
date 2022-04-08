@@ -60,10 +60,6 @@ class LavalinkClient:
         self.bot.subscribe(hikari.VoiceStateUpdateEvent, self.raw_voice_state_update)
         self.bot.subscribe(hikari.VoiceServerUpdateEvent, self.raw_voice_server_update)
 
-    @property
-    def nodes(self):
-        return NodePool._nodes
-
     @staticmethod
     async def create_player(voice_state: hikari.VoiceState, cls=BasePlayer) -> BP:
         node = NodePool.get_node()
@@ -90,12 +86,7 @@ class LavalinkClient:
         player = await self.get_player(guild_id)
 
         if player:
-            if not event.state.channel_id:
-                await player.destroy()
-            else:
-                player._voice_state = ConnectionInfo(guild_id=guild_id,
-                                                     session_id=event.state.session_id,
-                                                     channel_id=event.state.channel_id)
+            player._voice_state = ConnectionInfo(guild_id=guild_id, channel_id=event.state.channel_id)
 
     async def raw_voice_server_update(self, event: hikari.VoiceServerUpdateEvent) -> None:
         """
@@ -117,7 +108,7 @@ class LavalinkClient:
             "event": {
                 "token": event.token,
                 "guild_id": str(guild_id),
-                "endpoint": event.endpoint.replace("wss://", "")
+                "endpoint": event.raw_endpoint
             }
         })
 
